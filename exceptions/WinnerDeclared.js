@@ -1,4 +1,4 @@
-module.exports = function GameEnded(message, extra) {
+module.exports = function WinnerDeclared(message, extra) {
   Error.captureStackTrace(this, this.constructor);
   this.name = this.constructor.name;
   this.message = message;

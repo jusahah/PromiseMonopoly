@@ -3,24 +3,52 @@ var _ = require('lodash');
 
 // Exceptions
 var GameEnded = require('./exceptions/GameEnded');
+var RetryTurn = require('./exceptions/RetryTurn');
+var WinnerDeclared = require('./exceptions/WinnerDeclared');
+var DrawDeclared = require('./exceptions/DrawDeclared');
 
 // Sketching the main loop for the game
 
 var players = [
 	{
-		id: 'A'
+		id: 'A',
+		yourMove: function() {
+			return Promise.delay(Math.random()*500+100).then(function() {
+				return {move: 'e4'};
+			})
+		}
 	},
 	{
-		id: 'B'
+		id: 'B',
+		yourMove: function() {
+			return Promise.delay(Math.random()*500+100).then(function() {
+				return {move: 'e4'};
+			})
+		}
 	},
 	{
-		id: 'C'
+		id: 'C',
+		yourMove: function() {
+			return Promise.delay(Math.random()*500+100).then(function() {
+				return {move: 'e4'};
+			})
+		}
 	},
 	{
-		id: 'D'
+		id: 'D',
+		yourMove: function() {
+			return Promise.delay(Math.random()*500+100).then(function() {
+				return {move: 'e4'};
+			})
+		}
 	},
 	{
-		id: 'E'
+		id: 'E',
+		yourMove: function() {
+			return Promise.delay(Math.random()*500+100).then(function() {
+				return {move: 'e4'};
+			})
+		}
 	}
 ];
 
@@ -29,7 +57,7 @@ Promise.try(function() {
 		c: 1
 	};
 
-	startGame(initialWorld, players);
+	return startGame(initialWorld, players);
 })
 .catch(GameEnded, function() {
 	console.log("Game ended");
@@ -41,20 +69,71 @@ Promise.try(function() {
 });
 
 
-function startGame(players) {
 
+
+function startGame(world, players) {
+
+	console.log("Starting game with " + players.length + " players");
+
+	var actions = {
+		declareWinner: function() {
+			throw new WinnerDeclared();
+		},
+		declareDraw: function() {
+			throw new DrawDeclared();
+		},
+		giveTurnBack: function() {
+			throw new RetryTurn();
+		},
+
+	}
+	/**
+	* MAIN DRIVER OF THE GAME LOOP - PLAYS OUT ONE ROUND OF MOVES
+	* @param {Array} players - List of players currently still playing
+	* @param {Number} nthRound - How many rounds have been played
+	* @returns {Promise} Return value not explicitly used (code either recurses or throws!)
+	*/
 	function playOneRound(players, nthRound) {
+
 		console.log("Starting round: " + nthRound)
-		return Promise.mapSeries(players, function(player) {
-			return handleMove(world, player, {
-				declareWinner: function() {
-					throw new WinnerDeclared();
-				},
-				declareDraw: function() {
-					throw new DrawDeclared();
-				},
-				
+
+		function runOnePlayer(player, illegalCount) {
+			illegalCount = illegalCount || 0;
+			// Give the control to player
+			return player.yourMove()
+			// Receive player move and decide its legality
+			.then(function(move) {
+				return [move, decideMoveLegality(world, player, move, actions)]
 			})
+			// Call either legal or illegal handler depending on move legality
+			.spread(function(move, isLegal) {
+				console.log(move);
+				console.log("Legal? " + isLegal)
+				if (isLegal === true) return handleLegalMove(world, player, move, actions);
+				else if (isLegal === false) return handleIllegalMove(world, player, move, actions, illegalCount);	
+				throw "Move legality checker did not return TRUE/FALSE: " + isLegal;
+			})			
+			// Decide whether to keep player around for the next round
+			.then(function(keepPlayer) {
+				console.log("Do we keep player? " + keepPlayer);
+				if (keepPlayer === true) return player;
+				else if (keepPlayer === false) return null;
+				throw "Move handling function did not return TRUE/FALSE: " + keepPlayer;
+			}) 
+			.catch(RetryTurn, function() {
+				// Repeat this turn
+				console.log("RETRYING");
+				return runOnePlayer(player, illegalCount+1);
+			})			
+
+		}
+
+		return Promise.mapSeries(players, runOnePlayer)
+		.tap(function(){
+			console.log("----------")
+			console.log('WORLD STATE NOW: ' + world.c)
+			console.log("----------")
+
 		})
 		.then(_.compact)
 		.then(function(remainingPlayers) {
@@ -92,19 +171,19 @@ function playerMoves(world, player, actions) {
 * @returns {Boolean} False === illegal, True === legal.
 */
 function decideMoveLegality(world, player, move, actions) {
-
-
+	// This function is 'gate-keeper'
+	return Math.random() < 0.1;
 }
 
 /** 
-* Handles moves from player. Both legal AND illegal.
+* Handles illegal moves from player. Legality determined by 'decideMoveLegality'.
 * @param {Object} world - The global game state.
 * @param {Object} player - The player who made the move
 * @param {Object} move - The move object
 * @param {Object} actions - Obj containing game actions
 * @returns {Boolean} False === player removed from game, True === player remains in the game.
 */
-function handleIllegalMove(world, player, move, actions) {
+function handleIllegalMove(world, player, move, actions, illegalCount) {
 	// Note that this function must return explicitly false or true
 	// Other falsy or truthy values are NOT okay to return (will throw exception)
 	//////// SUGGESTIONS WHAT TO DO HERE //////////
@@ -113,10 +192,14 @@ function handleIllegalMove(world, player, move, actions) {
 	// 3) Give turn to next player but keep current player in game.
 	///////////////////////////////////////////////
 
+	if (illegalCount > 2) return false;
+
+	return actions.giveTurnBack();
+
 }
 
 /** 
-* Handles moves from player. Both legal AND illegal.
+* Handles legal moves from player. Legality determined by 'decideMoveLegality'.
 * @param {Object} world - The global game state.
 * @param {Object} player - The player who made the move
 * @param {Object} move - The move object
@@ -129,6 +212,11 @@ function handleLegalMove(world, player, move, actions) {
 	//////// SUGGESTIONS WHAT TO DO HERE //////////
 	// 1) Modify game state, give turn to next player.
 	///////////////////////////////////////////////
+
+	// Test modify global game state
+	world.c++;
+
+	return true;
 
 }
 
@@ -148,10 +236,14 @@ function handleTimeout(world, player, actions) {
 	// 3) Do nothing, but give turn to next player (return true)
 	///////////////////////////////////////////////
 
+	// Default
+	return true;
+
 }
 
 /** 
 * Handles untimely move from player. Untimely means it was NOT player's turn to move.
+* Note that
 * @param {Object} world - The global game state.
 * @param {Object} player - The player who made the move
 * @param {Object} actions - Obj containing game actions
@@ -160,6 +252,12 @@ function handleTimeout(world, player, actions) {
 function handleUntimelyMove(world, player, actions) {
 	// Note that this function must return explicitly false or true
 	// Other falsy or truthy values are NOT okay to return (will throw exception)
+	//////// SUGGESTIONS WHAT TO DO HERE //////////
+	// 1) Nothing.
+	// 2) Keep a counter of how many times she has done this. When too many, remove player.
+	
+	// Default
+	return true;
 }
 
 
@@ -174,3 +272,5 @@ function handleUntimelyMove(world, player, actions) {
 5) Auto-end when just one player left
 7) Actions and global state being passed to methods
 8) Async world update?
+
+*/
