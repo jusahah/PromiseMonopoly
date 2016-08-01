@@ -13,7 +13,7 @@ To implement a game using **PromiseMonopoly** means (loosely) to inject hooks th
 To create a framework which handles all/most of the common tasks regarding building server-based multiplayer game. 
 Only turn-based games supported. Common tasks I try to abstract for the framework to handle are:
 
-1. Gameplay flow (player 1 moves first, then player 2, then player 3, etc..)
+1. Gameplay flow (player #1 moves first, then #2, then #3, back to #1, etc...)
 2. Taking care of disconnects.
 3. Game state modifications (modificator injected by client code).
 4. Handle flag falls (= player runs out of time to make her move).
