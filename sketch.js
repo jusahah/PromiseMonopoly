@@ -7,57 +7,30 @@ var RetryTurn = require('./exceptions/RetryTurn');
 var WinnerDeclared = require('./exceptions/WinnerDeclared');
 var DrawDeclared = require('./exceptions/DrawDeclared');
 
+var Player = require('./Player.js');
+
 // Sketching the main loop for the game
+var maxTime = 3500;
 
 var players = [
-	{
-		id: 'A',
-		yourMove: function() {
-			return Promise.delay(Math.random()*500+100).then(function() {
-				return {move: 'e4'};
-			})
-		}
-	},
-	{
-		id: 'B',
-		yourMove: function() {
-			return Promise.delay(Math.random()*500+100).then(function() {
-				return {move: 'e4'};
-			})
-		}
-	},
-	{
-		id: 'C',
-		yourMove: function() {
-			return Promise.delay(Math.random()*500+100).then(function() {
-				return {move: 'e4'};
-			})
-		}
-	},
-	{
-		id: 'D',
-		yourMove: function() {
-			return Promise.delay(Math.random()*500+100).then(function() {
-				return {move: 'e4'};
-			})
-		}
-	},
-	{
-		id: 'E',
-		yourMove: function() {
-			return Promise.delay(Math.random()*500+100).then(function() {
-				return {move: 'e4'};
-			})
-		}
-	}
+
+	new Player('A', {maxTime: maxTime}),
+	new Player('B', {maxTime: maxTime}),
+	new Player('C', {maxTime: maxTime}),
+	new Player('D', {maxTime: maxTime}),
+	new Player('E', {maxTime: maxTime}),
+
 ];
 
 Promise.try(function() {
 	var initialWorld = {
-		c: 1
+		c: 0,
+		timeouts: 0
 	};
 
-	return startGame(initialWorld, players);
+	return startGame(initialWorld, players, {
+		moveTimeout: 4500
+	});
 })
 .catch(GameEnded, function() {
 	console.log("Game ended");
@@ -71,10 +44,7 @@ Promise.try(function() {
 
 
 
-function startGame(world, players) {
-
-	console.log("Starting game with " + players.length + " players");
-
+function startGame(world, players, settings) {
 	var actions = {
 		declareWinner: function() {
 			throw new WinnerDeclared();
@@ -85,8 +55,26 @@ function startGame(world, players) {
 		giveTurnBack: function() {
 			throw new RetryTurn();
 		},
+		customMsgAll: function(msg) {
+			_.map(players, function(player) {
+				player.customMsg(msg);
+			})
+
+		}
 
 	}
+
+	// Set links
+	_.map(players, function(player) {
+		player.setDisconnectNotify(function() {
+			player.hasDisconnected = true;
+			handlePlayerDisconnected(world, player, actions);
+		})
+	});
+
+	console.log("Starting game with " + players.length + " players");
+
+
 	/**
 	* MAIN DRIVER OF THE GAME LOOP - PLAYS OUT ONE ROUND OF MOVES
 	* @param {Array} players - List of players currently still playing
@@ -97,10 +85,8 @@ function startGame(world, players) {
 
 		console.log("Starting round: " + nthRound)
 
-		function runOnePlayer(player, illegalCount) {
-			illegalCount = illegalCount || 0;
-			// Give the control to player
-			return player.yourMove()
+		function moveHandling(move, player, illegalCount) {
+			return Promise.resolve(move)
 			// Receive player move and decide its legality
 			.then(function(move) {
 				return [move, decideMoveLegality(world, player, move, actions)]
@@ -113,8 +99,38 @@ function startGame(world, players) {
 				else if (isLegal === false) return handleIllegalMove(world, player, move, actions, illegalCount);	
 				throw "Move legality checker did not return TRUE/FALSE: " + isLegal;
 			})			
+		}
+
+		function timeoutHandling(player) {
+			return handleTimeout(world, player, actions);
+		}
+
+		function runOnePlayer(player, illegalCount) {
+			if (player.hasDisconnected) {
+				// Player has disconnected while waiting his turn
+				// We simply migrate to next player right away
+				return null;
+			}
+
+			illegalCount = illegalCount || 0;
+			// Give the control to player
+			return Promise.any([
+				// Player makes a move...
+				player.yourMove(), 
+				// ... or delay Promise goes first in case player is too slow!
+				Promise.delay(settings.moveTimeout).return({timeout: true})
+			])
+			// Check whether player timed out
+			.then(function(move) {
+				// Check if timed out
+				if (_.has(move, 'timeout') && move.timeout === true) {
+					return timeoutHandling(player);
+				}
+				return moveHandling(move, player, illegalCount)
+			})			
 			// Decide whether to keep player around for the next round
 			.then(function(keepPlayer) {
+				// If we want to keep the player, we return player object
 				console.log("Do we keep player? " + keepPlayer);
 				if (keepPlayer === true) return player;
 				else if (keepPlayer === false) return null;
@@ -146,7 +162,7 @@ function startGame(world, players) {
 			return playOneRound(remainingPlayers, nthRound+1);
 		});
 	}
-
+	// Kick-off game by starting first round
 	return playOneRound(players, 1);
 }
 
@@ -172,7 +188,7 @@ function playerMoves(world, player, actions) {
 */
 function decideMoveLegality(world, player, move, actions) {
 	// This function is 'gate-keeper'
-	return Math.random() < 0.1;
+	return Math.random() < 0.999;
 }
 
 /** 
@@ -237,7 +253,22 @@ function handleTimeout(world, player, actions) {
 	///////////////////////////////////////////////
 
 	// Default
-	return true;
+	console.log("PLAYER TIMED OUT!!!!!!!!!");
+	player.customMsg({
+		topic: 'timeout',
+		msg: 'You were too slow to move!'
+	});
+	world.timeouts++;
+	return false;
+
+}
+
+function handlePlayerDisconnected(world, player, actions) {
+	console.log("Player has disconnected");
+	actions.customMsgAll({
+		topic: 'disconnected',
+		player: player.id
+	});
 
 }
 
