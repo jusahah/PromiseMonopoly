@@ -2,7 +2,7 @@
 
 A framework for creating turn-based multiplayer games quickly by hooking in custom handlers.
 
-**Project name is 'PromiseMonopoly' due the fact that the framework should be especially well-suited to implement Monopoly-game. The framework is game-agnostic, and can be used to implement turn-based games like Chess, Poker, Battleship, etc.
+**Project name is 'PromiseMonopoly' due the fact that the framework should be especially well-suited to implement Monopoly-game. The framework is game-agnostic, and can be used to implement turn-based games like Chess, Poker, Battleship, etc.**
 
 ### Goal
 
