@@ -21,21 +21,21 @@ module.exports = function GameInProgress(game, initialWorld) {
 		return playOneRound(players, 1, this.world, this);
 	}
 
-	_.delay(this.startRoundLooping.bind(this), 0);
+	//_.delay(this.startRoundLooping.bind(this), 0);
 
 }
 
-var maxTime = 3500;
+var maxTime = 1450;
 
 
 function playOneRound(players, nthRound, world, stateObj) {
 
 	var actions = {
-		declareWinner: function() {
-			throw new WinnerDeclared();
+		declareWinner: function(player) {
+			throw new WinnerDeclared(player.id + " won the game!");
 		},
 		declareDraw: function() {
-			throw new DrawDeclared();
+			throw new DrawDeclared("No winner - game drawn.");
 		},
 		giveTurnBack: function() {
 			throw new RetryTurn();
@@ -58,8 +58,8 @@ function playOneRound(players, nthRound, world, stateObj) {
 		})
 		// Call either legal or illegal handler depending on move legality
 		.spread(function(move, isLegal) {
-			console.log(move);
-			console.log("Legal? " + isLegal)
+			//console.log(move);
+			console.log(player.id + " is legal move? " + isLegal)
 			if (isLegal === true) return handleLegalMove(world, player, move, actions);
 			else if (isLegal === false) return handleIllegalMove(world, player, move, actions, illegalCount);	
 			throw "Move legality checker did not return TRUE/FALSE: " + isLegal;
@@ -71,6 +71,7 @@ function playOneRound(players, nthRound, world, stateObj) {
 	}
 
 	function runOnePlayer(player, illegalCount) {
+		console.log("Illegal count now: " + illegalCount)
 		if (player.hasDisconnected) {
 			// Player has disconnected while waiting his turn
 			// We simply migrate to next player right away
@@ -83,7 +84,7 @@ function playOneRound(players, nthRound, world, stateObj) {
 			// Player makes a move...
 			player.yourMove(), 
 			// ... or delay Promise goes first in case player is too slow!
-			Promise.delay(5000).return({timeout: true})
+			Promise.delay(470).return({timeout: true})
 		])
 		// Check whether player timed out
 		.then(function(move) {
@@ -96,20 +97,24 @@ function playOneRound(players, nthRound, world, stateObj) {
 		// Decide whether to keep player around for the next round
 		.then(function(keepPlayer) {
 			// If we want to keep the player, we return player object
-			console.log("Do we keep player? " + keepPlayer);
 			if (keepPlayer === true) return player;
-			else if (keepPlayer === false) return null;
+			else if (keepPlayer === false) {
+				console.log("Player lost: " + player.id);
+				return null;
+			}
 			throw "Move handling function did not return TRUE/FALSE: " + keepPlayer;
 		}) 
 		.catch(RetryTurn, function() {
 			// Repeat this turn
-			console.log("RETRYING");
+			console.log("Retrying player turn: " + player.id);
 			return runOnePlayer(player, illegalCount+1);
 		})			
 
 	}
 
-	return Promise.mapSeries(players, runOnePlayer)
+	return Promise.mapSeries(players, function(p) {
+		return runOnePlayer(p, 0);
+	})
 	.tap(function(){
 		console.log("----------")
 		console.log('WORLD STATE NOW: ' + world.c)
@@ -119,9 +124,12 @@ function playOneRound(players, nthRound, world, stateObj) {
 	.then(_.compact)
 	.then(function(remainingPlayers) {
 		console.log("Round played - remaining: " + remainingPlayers.length);
-		if (remainingPlayers.length <= 1) {
+		if (remainingPlayers.length === 1) {
 			// Game has ended
-			throw new GameEnded();
+			var winner = remainingPlayers[0];
+			actions.declareWinner(winner);
+		} else if (remainingPlayers.length === 0) {
+			actions.declareDraw();
 		}
 
 		return playOneRound(remainingPlayers, nthRound+1, world, stateObj);
@@ -138,7 +146,7 @@ function playOneRound(players, nthRound, world, stateObj) {
 */
 function decideMoveLegality(world, player, move, actions) {
 	// This function is 'gate-keeper'
-	return Math.random() < 0.999;
+	return Math.random() < 0.5;
 }
 
 /** 

@@ -6,7 +6,7 @@ module.exports = function Player(id, settings) {
 	/** Link to Game object. Null if player not registered to any Game */
 	this.gameLink = null;
 
-	this.maxTime = settings.maxTime || 6 * 1000;
+	this.maxTime = settings.maxTime || 0 * 1000;
 
 	this.id = id;
 
@@ -33,18 +33,19 @@ module.exports = function Player(id, settings) {
 	}
 
 	this.yourMove = function() {
-		return Promise.delay(Math.random()*this.maxTime).then(function() {
+		return Promise.delay(this.maxTime + Math.random() * 500).then(function() {
 			return {timeout: false, move: 'e4'};
 		})
 	}
 
 	this.customMsg = function(msg) {
+		return;
 		console.log("---Received msg in player: " + this.id + " ------");
 		console.log(msg);
 	}
 
 	// Testing disconnecting!
-	if (this.id !== 'B') {
+	if (this.id === 'B2') {
 		console.log("Test disconnect");
 		setTimeout(function() {
 			this.disconnect();

@@ -8,6 +8,12 @@ var PlayerNotRegistered     = require('./exceptions/PlayerNotRegistered');
 var AdditionCheckFailed     = require('./exceptions/AdditionCheckFailed');
 var LaunchFailed            = require('./exceptions/LaunchFailed');
 
+// More exceptions
+var GameEnded = require('./exceptions/GameEnded');
+var RetryTurn = require('./exceptions/RetryTurn');
+var WinnerDeclared = require('./exceptions/WinnerDeclared');
+var DrawDeclared = require('./exceptions/DrawDeclared');
+
 /** Game states */
 // Waiting for registrations
 var RegistrationOpen = require('./gamestates/RegistrationOpen');
@@ -101,7 +107,26 @@ module.exports = function Game(id, settings) {
 		}, ''))
 		// Make sure we don't relaunch
 		this.launched = true;
-		this._changeState(new GameInProgress(this, {c: 0}));
+
+		var gameInProgressState = new GameInProgress(this, {c: 0});
+		this._changeState(gameInProgressState);
+
+		// Start looping rounds
+		_.defer(function() {
+			gameInProgressState.startRoundLooping()
+			// Start catching all possible exceptions that kill the GameInProgress state!
+			.catch(GameEnded, function(err) {
+				console.log("--- Game ended without result ---")
+			})
+			.catch(WinnerDeclared, function(err) {
+				console.log(err.message);
+				console.log("--- GAME HAS ENDED IN WIN ---");
+			})
+			.catch(DrawDeclared, function(err) {
+				console.log(err.message);
+				console.log("--- GAME HAS ENDED IN DRAW---");
+			})			
+		})
 
 		
 	}
