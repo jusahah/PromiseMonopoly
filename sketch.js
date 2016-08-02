@@ -42,6 +42,16 @@ Promise.try(function() {
 });
 
 
+// I'd like an API like:
+
+// Register player to game
+// game.addPlayer(player);
+
+// Unregister player from game
+// game.removePlayer(player);
+
+// Registering player means that player starts receiving game msgs.
+
 
 
 function startGame(world, players, settings) {
