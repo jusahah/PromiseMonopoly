@@ -6,16 +6,23 @@ var RegistrationNotOpen     = require('./exceptions/RegistrationNotOpen');
 var PlayerAlreadyRegistered = require('./exceptions/PlayerAlreadyRegistered');
 var PlayerNotRegistered     = require('./exceptions/PlayerNotRegistered');
 var AdditionCheckFailed     = require('./exceptions/AdditionCheckFailed');
+var LaunchFailed            = require('./exceptions/LaunchFailed');
 
 /** Game states */
 // Waiting for registrations
 var RegistrationOpen = require('./gamestates/RegistrationOpen');
+// Launching in progress
+var GameLaunching    = require('./gamestates/GameLaunching');
 // Playing
 var GameInProgress   = require('./gamestates/GameInProgress');
 // Finished
 var GameFinished     = require('./gamestates/GameFinished');
 
+
 module.exports = function Game(id, settings) {
+
+	/** Whether this game has already completed launching sequence */
+	this.launched = false;
 
 	/** Game id for keeping this game separate of other games */
 	this._id = id;
@@ -24,24 +31,70 @@ module.exports = function Game(id, settings) {
 	this._players = [];
 
 	/** Tracks the current state of the game */
-	this._currentState = new RegistrationOpen(this);
+	this._currentState = null;
+
+	/** Actions */
+	var thisLexical = this;
+
+	this.actions = {
+		RegistrationOpen: {
+			launch: function() {
+				// We first change the state so that no other calls to this function
+				// accidentally relaunch the game
+				thisLexical._changeState(new GameLaunching(thisLexical));
+				// We must let the current loop go through as some players are still
+				// to be added to players list.
+				_.defer(thisLexical.launch.bind(thisLexical));
+
+			},
+		},
+
+		GameLaunching: {},
+
+		GameInProgress: {
+			declareWinner: function() {
+				throw new WinnerDeclared();
+			},
+			declareDraw: function() {
+				throw new DrawDeclared();
+			},
+			giveTurnBack: function() {
+				throw new RetryTurn();
+			},
+			customMsgAll: function(msg) {
+				_.map(players, function(player) {
+					player.customMsg(msg);
+				})
+			}		
+		},
+
+		GameFinished: {}		
+	}
 
 	/*
-	* Launches the game (moves from RegistrationOpen to GameInProgress state)
+	* Launches the game (moves from GameLaunching to GameInProgress state)
 	* @returns True
 	* @throws {LaunchFailed}
 	*/	
 	this.launch = function() {
-		if (this._currentState !instanceof RegistrationOpen) {
-			throw new LaunchFailed('Launch can only be done in RegistrationOpen state');
+		if (this.launched) {
+			throw new LaunchFailed('Launch already been completed - can not relaunch');
 		}
-
+		console.log("---GAME LAUNCHING---");
+		console.log("Players: " + _.reduce(this._players, function(s, p) {
+			return s + p.id + ", ";
+		}, ''))
+		// Make sure we don't relaunch
+		this.launched = true;
 		this._changeState(new GameInProgress(this));
+
+		
 	}
 
 	/** Private state changer, takes also care of messaging state changes to players */
 	this._changeState = function(newState) {
 		this._currentState = newState;
+		console.log("Game progressed to new state: " + newState.name);
 		this.msgToAll({
 			topic: 'game_state_change',
 			msg: newState.name
@@ -58,20 +111,24 @@ module.exports = function Game(id, settings) {
 	*/
 	this.addPlayer = function(player) {
 		// additionCheck defined in child class!
-		if (this._currentState !instanceof RegistrationOpen) {
+		if (!(this._currentState instanceof RegistrationOpen)) {
 			throw new RegistrationNotOpen();
 		}
 		if (this.hasRegistered(player)) throw new PlayerAlreadyRegistered();
-		if (!this.additionCheck(player, _.slice(this._players), this.actions)) {
+		if (!this.registrationHook(player, _.slice(this._players), this.actions.RegistrationOpen)) {
 			throw new AdditionCheckFailed();
 		}
 
 		// Add player
 		this._players.push(player);
+
+		// Link player to this game
+		player.linkToGame(this);
+
 		// Inform all players
 		this.msgToAll({
 			topic: 'player_registered',
-			msg: player
+			msg: player.id
 		});			
 		return true;
 		
@@ -86,10 +143,12 @@ module.exports = function Game(id, settings) {
 		if (hasRegistered(player)) {
 			// Remove player
 			_.pull(this._players, player);
+			// Unlink player from this game
+			player.unlinkFromGame(this);
 			// Inform remaining players
 			this.msgToAll({
 				topic: 'player_left',
-				msg: player
+				msg: player.id
 			});
 			return true;
 		}
@@ -118,9 +177,22 @@ module.exports = function Game(id, settings) {
 	}
 
 
-	/* TO BE DEFINED IN EXTENDING CLASSES */
+	/* TO BE DEFINED IN EXTENDING CLASSES OR INJECTED THROUGH HOOKS */
 
-	this.additionCheck = function(player, copyOfPlayers, gameActions) {
+	this.registrationHook = function(player, copyOfPlayers, registrationOpenActions) {
+		/* Note:
+		* You do NOT have to check following (they are already checked by framework):
+		* 1) That the game is in 'registration open' state
+		* 2) That player has not already registered (duplicate registration)
+		*/
+
+		// If you want launch the game from here, call:
+		// registrationOpenActions.launch();
+
+		if (copyOfPlayers.length === 2) registrationOpenActions.launch();
 		return true;
 	}
+
+	// Kick off by progressing to RegistrationOpen state
+	this._changeState(new RegistrationOpen(this));
 }

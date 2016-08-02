@@ -3,6 +3,9 @@ var Promise = require('bluebird');
 
 module.exports = function Player(id, settings) {
 
+	/** Link to Game object. Null if player not registered to any Game */
+	this.gameLink = null;
+
 	this.maxTime = settings.maxTime || 60 * 1000;
 
 	this.id = id;
@@ -34,11 +37,21 @@ module.exports = function Player(id, settings) {
 	}
 
 	// Testing disconnecting!
-	if (this.id === 'B') {
+	if (this.id === 'B4') {
 		console.log("Test disconnect");
 		setTimeout(function() {
 			this.disconnect();
 		}.bind(this), 4500);		
+	}
+
+	this.linkToGame = function(game) {
+		if (this.gameLink) throw new Error("Game link exists - can not overwrite, delete old first!");
+		this.gameLink = game;
+	}
+
+	this.unlinkFromGame = function(game) {
+		if (!this.gameLink) throw new Error ("Game link does NOT exist - can not unlink!");
+		this.gameLink = null;
 	}
 
 
