@@ -28,9 +28,11 @@ Promise.try(function() {
 		_.delay(function() {
 			console.log("Adding player to game: " + player.id);
 			game.addPlayer(player);
-			resolve();
-		}, Math.random() * 4000);
-	});
+			return resolve();
+		}, Math.random() * 1000);
+	}).catch(RegistrationNotOpen, function() {
+		console.log("--- Player failed to register - too late! ---");
+	})
 })
 .delay(1500)
 .then(function() {

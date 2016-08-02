@@ -72,6 +72,21 @@ module.exports = function Game(id, settings) {
 	}
 
 	/*
+	* Player object to call this method if player's connection is lost
+	* @param {Player} - The player object that disconnects.
+	* @returns undefined
+	*/	
+	this.playerDisconnecting = function(player) {
+		// Note that Player must have set her hasDisconnected = true by now!
+		// That way actual disconnecting is handled in GameInProgress state!
+		// Here we simply broadcast notification
+		this.msgToAll({
+			topic: 'player_disconnect',
+			msg: player.id
+		});
+	}
+
+	/*
 	* Launches the game (moves from GameLaunching to GameInProgress state)
 	* @returns True
 	* @throws {LaunchFailed}
@@ -86,7 +101,7 @@ module.exports = function Game(id, settings) {
 		}, ''))
 		// Make sure we don't relaunch
 		this.launched = true;
-		this._changeState(new GameInProgress(this));
+		this._changeState(new GameInProgress(this, {c: 0}));
 
 		
 	}
@@ -189,7 +204,7 @@ module.exports = function Game(id, settings) {
 		// If you want launch the game from here, call:
 		// registrationOpenActions.launch();
 
-		if (copyOfPlayers.length === 2) registrationOpenActions.launch();
+		//if (copyOfPlayers.length === 2) registrationOpenActions.launch();
 		return true;
 	}
 

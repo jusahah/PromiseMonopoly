@@ -6,7 +6,7 @@ module.exports = function Player(id, settings) {
 	/** Link to Game object. Null if player not registered to any Game */
 	this.gameLink = null;
 
-	this.maxTime = settings.maxTime || 60 * 1000;
+	this.maxTime = settings.maxTime || 6 * 1000;
 
 	this.id = id;
 
@@ -17,10 +17,17 @@ module.exports = function Player(id, settings) {
 	this.hasDisconnected = false;
 	
 	this.disconnect = function() {
+		if (this.gameLink) {
+			this.hasDisconnected = true;
+			this.gameLink.playerDisconnecting(this);
+			return;
+		}
+		/*
 		if (this.cbs.disconnect) return this.cbs.disconnect();
 		console.log("WARNING: Player disconnected but no cb present!");
+		*/
 	}
-
+	/** Not in use for now */
 	this.setDisconnectNotify = function(cb) {
 		this.cbs.disconnect = cb;
 	}
@@ -37,11 +44,11 @@ module.exports = function Player(id, settings) {
 	}
 
 	// Testing disconnecting!
-	if (this.id === 'B4') {
+	if (this.id !== 'B') {
 		console.log("Test disconnect");
 		setTimeout(function() {
 			this.disconnect();
-		}.bind(this), 4500);		
+		}.bind(this), 5500);		
 	}
 
 	this.linkToGame = function(game) {
