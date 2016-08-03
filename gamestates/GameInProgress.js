@@ -18,7 +18,7 @@ module.exports = function GameInProgress(game, initialWorld) {
 	this.startRoundLooping = function() {
 		var players = this.gameLink._players;
 
-		return playOneRound(players, 1, this.world, this);
+		return playOneRound(players, 1, this.world, this, game);
 	}
 
 	//_.delay(this.startRoundLooping.bind(this), 0);
@@ -28,7 +28,7 @@ module.exports = function GameInProgress(game, initialWorld) {
 var maxTime = 1450;
 
 
-function playOneRound(players, nthRound, world, stateObj) {
+function playOneRound(players, nthRound, world, stateObj, game) {
 
 	var actions = {
 		declareWinner: function(player) {
@@ -41,9 +41,12 @@ function playOneRound(players, nthRound, world, stateObj) {
 			throw new RetryTurn();
 		},
 		customMsgAll: function(msg) {
+			return game.msgToAll(msg);
+			/*
 			_.map(players, function(player) {
 				player.customMsg(msg);
 			})
+			*/
 
 		}
 
@@ -84,7 +87,7 @@ function playOneRound(players, nthRound, world, stateObj) {
 			// Player makes a move...
 			player.yourMove(), 
 			// ... or delay Promise goes first in case player is too slow!
-			Promise.delay(470).return({timeout: true})
+			Promise.delay(1475).return({timeout: true})
 		])
 		// Check whether player timed out
 		.then(function(move) {
@@ -132,7 +135,7 @@ function playOneRound(players, nthRound, world, stateObj) {
 			actions.declareDraw();
 		}
 
-		return playOneRound(remainingPlayers, nthRound+1, world, stateObj);
+		return playOneRound(remainingPlayers, nthRound+1, world, stateObj, game);
 	});
 }
 
@@ -144,7 +147,7 @@ function playOneRound(players, nthRound, world, stateObj) {
 * @param {Object} actions - Obj containing game actions
 * @returns {Boolean} False === illegal, True === legal.
 */
-function decideMoveLegality(world, player, move, actions) {
+function decideMoveLegality(world, player, move, actions){
 	// This function is 'gate-keeper'
 	return Math.random() < 0.5;
 }
@@ -189,6 +192,10 @@ function handleLegalMove(world, player, move, actions) {
 
 	// Test modify global game state
 	world.c++;
+	actions.customMsgAll({
+		topic: 'moveWasMade',
+		msg: world.c
+	});
 
 	return true;
 

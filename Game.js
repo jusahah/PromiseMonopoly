@@ -36,6 +36,9 @@ module.exports = function Game(id, settings) {
 	/** Players array taking part in this game */
 	this._players = [];
 
+	/** Players and kibitzer receiving events from this game */
+	this._playersAndKibitzers = [];
+
 	/** Tracks the current state of the game */
 	this._currentState = null;
 
@@ -121,12 +124,20 @@ module.exports = function Game(id, settings) {
 			.catch(WinnerDeclared, function(err) {
 				console.log(err.message);
 				console.log("--- GAME HAS ENDED IN WIN ---");
-			})
+				this.msgToAll({
+					topic: 'winner_declared',
+					msg: err.message
+				});
+			}.bind(this))
 			.catch(DrawDeclared, function(err) {
 				console.log(err.message);
 				console.log("--- GAME HAS ENDED IN DRAW---");
-			})			
-		})
+				this.msgToAll({
+					topic: 'draw_declared',
+					msg: err.message
+				});
+			}.bind(this))			
+		}.bind(this))
 
 		
 	}
@@ -161,6 +172,7 @@ module.exports = function Game(id, settings) {
 
 		// Add player
 		this._players.push(player);
+		this._playersAndKibitzers.push(player);
 
 		// Link player to this game
 		player.linkToGame(this);
@@ -211,7 +223,7 @@ module.exports = function Game(id, settings) {
 		// Decorate with extra info
 		msg.gameID = this._id;
 
-		_.map(this._players, function(player) {
+		_.map(this._playersAndKibitzers, function(player) {
 			player.customMsg(msg);
 		})
 	}

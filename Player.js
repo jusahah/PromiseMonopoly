@@ -1,12 +1,12 @@
 var _ = require('lodash');
 var Promise = require('bluebird');
 
-module.exports = function Player(id, settings) {
+module.exports = function Player(id, settings, msgForward) {
 
 	/** Link to Game object. Null if player not registered to any Game */
 	this.gameLink = null;
 
-	this.maxTime = settings.maxTime || 0 * 1000;
+	this.maxTime = settings.maxTime || 0.1 * 1000;
 
 	this.id = id;
 
@@ -33,13 +33,16 @@ module.exports = function Player(id, settings) {
 	}
 
 	this.yourMove = function() {
-		return Promise.delay(this.maxTime + Math.random() * 500).then(function() {
+		this.customMsg({
+			topic: 'yourTurn'
+		});
+		return Promise.delay(this.maxTime + Math.random() * 1500).then(function() {
 			return {timeout: false, move: 'e4'};
 		})
 	}
 
-	this.customMsg = function(msg) {
-		return;
+	this.customMsg = msgForward || function(msg) {
+		// Default test messaging forward
 		console.log("---Received msg in player: " + this.id + " ------");
 		console.log(msg);
 	}
