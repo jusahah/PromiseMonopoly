@@ -32,10 +32,11 @@ function playOneRound(players, nthRound, world, stateObj, game) {
 
 	var actions = {
 		declareWinner: function(player) {
-			throw new WinnerDeclared(player.id + " won the game!");
+			throw new WinnerDeclared(player.id);
 		},
-		declareDraw: function() {
-			throw new DrawDeclared("No winner - game drawn.");
+		declareDraw: function(players) {
+			var ids = _.map(players, 'id');
+			throw new DrawDeclared(ids);
 		},
 		giveTurnBack: function() {
 			throw new RetryTurn();
@@ -114,6 +115,8 @@ function playOneRound(players, nthRound, world, stateObj, game) {
 		})			
 
 	}
+	// Make a copy of players so we can later compare who lost during the round
+	var startedThisRoundPlayers = _.slice(players);
 
 	return Promise.mapSeries(players, function(p) {
 		return runOnePlayer(p, 0);
@@ -126,13 +129,21 @@ function playOneRound(players, nthRound, world, stateObj, game) {
 	})
 	.then(_.compact)
 	.then(function(remainingPlayers) {
+		// Inform those who lost during the round
+		var lostPlayers = _.difference(startedThisRoundPlayers, remainingPlayers);
+		_.map(lostPlayers, function(p) {
+			p.customMsg({
+				topic: 'youLost'
+			});
+		})
+
 		console.log("Round played - remaining: " + remainingPlayers.length);
 		if (remainingPlayers.length === 1) {
 			// Game has ended
 			var winner = remainingPlayers[0];
 			actions.declareWinner(winner);
 		} else if (remainingPlayers.length === 0) {
-			actions.declareDraw();
+			actions.declareDraw(startedThisRoundPlayers);
 		}
 
 		return playOneRound(remainingPlayers, nthRound+1, world, stateObj, game);
@@ -149,7 +160,7 @@ function playOneRound(players, nthRound, world, stateObj, game) {
 */
 function decideMoveLegality(world, player, move, actions){
 	// This function is 'gate-keeper'
-	return Math.random() < 0.5;
+	return Math.random() < 0.80;
 }
 
 /** 
@@ -170,7 +181,7 @@ function handleIllegalMove(world, player, move, actions, illegalCount) {
 	///////////////////////////////////////////////
 
 	if (illegalCount > 2) return false;
-
+	console.log("Throwing retryTurn");
 	return actions.giveTurnBack();
 
 }

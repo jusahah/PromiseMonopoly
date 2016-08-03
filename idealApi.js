@@ -57,6 +57,12 @@ function actAsRound(settings, phases) {
 
 /// Monopoly
 
+
+// There are two types of PRIMITIVE phases:
+/*
+	1) PlayerAction - broadcasts something to player and then waits for response
+	2) AutoAction - doesn't wait for input from player, but from expensive server operation etc.
+*/
 new Game({
 	loopPhases: true,
 	timeout: {
@@ -67,12 +73,67 @@ new Game({
 		new LetEachPlayerMakeMove({
 			loopPhases: false,
 			[
-				new RollDices(),
-				new HandleResultOfDices(),
+				new RollDices({
+					onStart: function() {
+						console.log("Rolling dices");
+					},
+					// Send action request to player
+					// Kicks off the timeout timer!
+					sendActionRequest: function() {
+
+					},
+					// Receive action command from player
+					// Stops the timeout timer (if it did not trigger already)
+					receiveActionCommand: function() {
+
+					},
+					timeoutOccurred: function(world, player, players, actions) {
+						actions.retryTurn();
+					},
+					takeAction: function(prevResult, world, player, players, actions) {
+						// return dices results
+						// Return value from here will be routed to next phase!
+						return [1,1];
+					},
+					onEnd: function() {
+						console.log("Dices have been rolled");
+					}
+				}),
+				new HandleResultOfDices({
+					takeAction: function(dices, world, player, players, actions) {
+						// Move player figure
+						// If not his, we can safely skip the last phase
+						actions.skipRemainingPhases(); // Progresses turn to next player
+					},
+				}),
 				new AskIfPlayerWantsToBuyHouses()
-			]
+			],
+			eventCallbacks: {
+				onStart: function(world, players, actions) {
+					console.log("Waiting player to move");
+					actions.msgToAll({
+						topic: ''
+					})
+
+				},
+				onEnd: function(world, players, actions) {
+					console.log("Player completed his move");
+					world.tempState.pop();
+
+				}
+			}
 		})
-	]
+	],
+	eventCallbacks: {
+		onStart: function(world, players, actions) {
+			console.log("Game started");
+
+		},
+		onEnd: function(world, players, actions) {
+			console.log("Game ended");
+
+		}
+	}
 })
 
 // Chess

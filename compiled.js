@@ -419,23 +419,68 @@ var Player = require('./Player');
 
 var game = new Game(uuid.v1(), {});
 
-var msgAcceptorFor = function(playerNum) {
+var msgAcceptorFor = function(playerLetter) {
+
+	var lostGame = false;
+	var activeBg = '#99eeff';
+	var lostBg = '#999999';
+	var wonBg = '#FFD700';
+	var drawBg = '#dddddd';
+
+	var el = jquery('#p' + playerLetter);
 
 	return function(msg) {
 		//console.error("MSG!");
-		var el = jquery('#p' + playerNum);
-		el.empty().append(JSON.stringify(msg));
+		
+		el.empty().append(msg.topic);
+
+		if (msg.topic === 'yourTurn') {
+			el.css('background-color', 'green');
+		} else if (msg.topic === 'player_registered') {
+			if (msg.msg === playerLetter) {
+				el.css('background-color', activeBg);
+			}
+		} else if (msg.topic === 'youLost') {
+			lostGame = true;
+			el.css('background-color', lostBg);
+		} else if (msg.topic === 'winner_declared') {
+			if (msg.msg === playerLetter) {
+				el.css('background-color', wonBg);
+			}
+		} else if (msg.topic === 'draw_declared') {
+			if (_.indexOf(msg.msg, playerLetter) !== 1) {
+				// This player was one who drew
+				el.css('background-color', drawBg);
+			}
+		} else if (msg.topic === 'moveWasMade') {
+			if (!lostGame) {
+				el.css('background-color', activeBg);
+			}
+		} else if (msg.topic === 'timeout') {
+			lostGame = true;
+			el.css('background-color', lostBg);
+		}
+		
 	}
 
 }
+/*
+var p1 = new Player('A', {}, msgAcceptorFor('A'));
+var p2 = new Player('B', {}, msgAcceptorFor('B'));
+var p3 = new Player('C', {}, msgAcceptorFor('C'));
+var p4 = new Player('D', {}, msgAcceptorFor('D'));
+*/
 
-var p1 = new Player('A', {}, msgAcceptorFor(1));
-var p2 = new Player('B', {}, msgAcceptorFor(2));
-var p3 = new Player('C', {}, msgAcceptorFor(3));
-var p4 = new Player('D', {}, msgAcceptorFor(4));
+function createTestPlayers(num) {
+	var area = jquery('#testingarea');
+	return _.times(num, function(nth) {
+		area.append('<div id="p' + nth + '" class="player"></div>');
+		return new Player(nth, {}, msgAcceptorFor(nth));
+	})
+}
 
 Promise.try(function() {
-	return [p1, p2, p3, p4];
+	return createTestPlayers(10);
 })
 .mapSeries(function(player) {
 	return new Promise(function(resolve, reject) {
@@ -491,10 +536,11 @@ function playOneRound(players, nthRound, world, stateObj, game) {
 
 	var actions = {
 		declareWinner: function(player) {
-			throw new WinnerDeclared(player.id + " won the game!");
+			throw new WinnerDeclared(player.id);
 		},
-		declareDraw: function() {
-			throw new DrawDeclared("No winner - game drawn.");
+		declareDraw: function(players) {
+			var ids = _.map(players, 'id');
+			throw new DrawDeclared(ids);
 		},
 		giveTurnBack: function() {
 			throw new RetryTurn();
@@ -573,6 +619,8 @@ function playOneRound(players, nthRound, world, stateObj, game) {
 		})			
 
 	}
+	// Make a copy of players so we can later compare who lost during the round
+	var startedThisRoundPlayers = _.slice(players);
 
 	return Promise.mapSeries(players, function(p) {
 		return runOnePlayer(p, 0);
@@ -585,13 +633,21 @@ function playOneRound(players, nthRound, world, stateObj, game) {
 	})
 	.then(_.compact)
 	.then(function(remainingPlayers) {
+		// Inform those who lost during the round
+		var lostPlayers = _.difference(startedThisRoundPlayers, remainingPlayers);
+		_.map(lostPlayers, function(p) {
+			p.customMsg({
+				topic: 'youLost'
+			});
+		})
+
 		console.log("Round played - remaining: " + remainingPlayers.length);
 		if (remainingPlayers.length === 1) {
 			// Game has ended
 			var winner = remainingPlayers[0];
 			actions.declareWinner(winner);
 		} else if (remainingPlayers.length === 0) {
-			actions.declareDraw();
+			actions.declareDraw(startedThisRoundPlayers);
 		}
 
 		return playOneRound(remainingPlayers, nthRound+1, world, stateObj, game);
@@ -608,7 +664,7 @@ function playOneRound(players, nthRound, world, stateObj, game) {
 */
 function decideMoveLegality(world, player, move, actions){
 	// This function is 'gate-keeper'
-	return Math.random() < 0.5;
+	return Math.random() < 0.80;
 }
 
 /** 
@@ -629,7 +685,7 @@ function handleIllegalMove(world, player, move, actions, illegalCount) {
 	///////////////////////////////////////////////
 
 	if (illegalCount > 2) return false;
-
+	console.log("Throwing retryTurn");
 	return actions.giveTurnBack();
 
 }
