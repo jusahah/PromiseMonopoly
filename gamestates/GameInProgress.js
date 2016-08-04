@@ -74,7 +74,13 @@ function playOneRound(players, nthRound, world, stateObj, game) {
 		return handleTimeout(world, player, actions);
 	}
 
-	function runOnePlayer(player, illegalCount) {
+	function runOnePlayer(player, illegalCount, startOfTurn) {
+		// Time handling
+		startOfTurn = startOfTurn || Date.now();
+		var sinceStartOfTurn = Date.now() - startOfTurn;
+		var timeleft = 10000 - sinceStartOfTurn;
+		timeleft = timeleft < 0 ? 0 : timeleft;
+
 		console.log("Illegal count now: " + illegalCount)
 		if (player.hasDisconnected) {
 			// Player has disconnected while waiting his turn
@@ -86,9 +92,9 @@ function playOneRound(players, nthRound, world, stateObj, game) {
 		// Give the control to player
 		return Promise.any([
 			// Player makes a move...
-			player.yourMove(), 
+			player.yourMove(timeleft), 
 			// ... or delay Promise goes first in case player is too slow!
-			Promise.delay(1475).return({timeout: true})
+			Promise.delay(timeleft).return({timeout: true})
 		])
 		// Check whether player timed out
 		.then(function(move) {
@@ -111,7 +117,8 @@ function playOneRound(players, nthRound, world, stateObj, game) {
 		.catch(RetryTurn, function() {
 			// Repeat this turn
 			console.log("Retrying player turn: " + player.id);
-			return runOnePlayer(player, illegalCount+1);
+			var spendTime = Date.now() - startOfTurn;
+			return runOnePlayer(player, illegalCount+1, startOfTurn);
 		})			
 
 	}
@@ -159,7 +166,13 @@ function playOneRound(players, nthRound, world, stateObj, game) {
 * @returns {Boolean} False === illegal, True === legal.
 */
 function decideMoveLegality(world, player, move, actions){
-	// This function is 'gate-keeper'
+	// This function is 'gate-keeper' or filterer
+
+	// Test for picking move by hand
+	if (move.move === 'e4' || move.move === 'e5') return true;
+	return false;
+
+	// Automated 
 	return Math.random() < 0.80;
 }
 
@@ -207,6 +220,15 @@ function handleLegalMove(world, player, move, actions) {
 		topic: 'moveWasMade',
 		msg: world.c
 	});
+
+	console.error("handling legal move");
+	console.log(move);
+
+	if (move.move === 'e5') {
+		// Simulate losing move
+		
+		return false;
+	}
 
 	return true;
 

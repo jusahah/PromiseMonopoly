@@ -14,6 +14,8 @@ module.exports = function Player(id, settings, msgForward) {
 		disconnect: null,
 	}
 
+	this.pendingMoveResolve = null;
+
 	this.hasDisconnected = false;
 	
 	this.disconnect = function() {
@@ -32,13 +34,29 @@ module.exports = function Player(id, settings, msgForward) {
 		this.cbs.disconnect = cb;
 	}
 
-	this.yourMove = function() {
+	this.yourMove = function(timetomove) {
 		this.customMsg({
-			topic: 'yourTurn'
+			topic: 'yourTurn',
+			timetomove: timetomove
 		});
+		return new Promise(function(resolve, reject) {
+			this.pendingMoveResolve = resolve;
+		}.bind(this));
+		
+		/*
 		return Promise.delay(this.maxTime + Math.random() * 1500).then(function() {
 			return {timeout: false, move: 'e4'};
 		})
+		*/
+	}
+
+	this.receiveMoveFromFrontend = function(move) {
+		console.log("Sending move to Player object");
+		console.log(move);
+		
+		if (this.pendingMoveResolve) {
+			this.pendingMoveResolve(move);
+		}
 	}
 
 	this.customMsg = msgForward || function(msg) {
