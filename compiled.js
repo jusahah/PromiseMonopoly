@@ -582,12 +582,12 @@ Promise.try(function() {
 			console.log("Adding player to game: " + player.id);
 			game.addPlayer(player);
 			return resolve();
-		}, Math.random() * 1000 + 1000);
+		}, Math.random() * 1000 + 100);
 	}).catch(RegistrationNotOpen, function() {
 		console.log("--- Player failed to register - too late! ---");
 	})
 })
-.delay(1500)
+.delay(500)
 .then(function() {
 	game.launch();
 });
@@ -627,6 +627,12 @@ var maxTime = 1450;
 
 
 function playOneRound(players, nthRound, world, stateObj, game) {
+
+	var msgAllPlayers = function(msg) {
+		_.map(players, function(player) {
+			player.customMsg(msg);
+		})
+	}
 
 	var actions = {
 		declareWinner: function(player) {
@@ -707,6 +713,13 @@ function playOneRound(players, nthRound, world, stateObj, game) {
 			// If we want to keep the player, we return player object
 			if (keepPlayer === true) return player;
 			else if (keepPlayer === false) {
+				msgAllPlayers({
+					topic: 'player_lost',
+					msg: player.id
+				});
+				player.customMsg({
+					topic: 'youLost'
+				})
 				console.log("Player lost: " + player.id);
 				return null;
 			}
@@ -722,9 +735,30 @@ function playOneRound(players, nthRound, world, stateObj, game) {
 	}
 	// Make a copy of players so we can later compare who lost during the round
 	var startedThisRoundPlayers = _.slice(players);
+	var survivedThisRoundPlayers = _.slice(players);
 
 	return Promise.mapSeries(players, function(p) {
-		return runOnePlayer(p, 0);
+		return runOnePlayer(p, 0)
+		.tap(function(survivingPlayer) {
+			console.log("Surviving");
+			console.log(survivingPlayer);
+			// Check whether player survived the round (not null)
+			// Note that this step is only for throwing GameEnded in case
+			// only one player left. This step does not return anything.
+			if (survivingPlayer === null) {
+				console.error("Did not survive")
+				// Player did not survive the round, remove
+				_.pull(survivedThisRoundPlayers, p);
+				console.error("Remaining survivors: " + survivedThisRoundPlayers.length);
+				if (survivedThisRoundPlayers.length === 1) {
+					// Only one remaining, game has ended
+					// Throws GameEnded
+					actions.declareWinner(survivedThisRoundPlayers[0]);
+				}
+				
+			}
+		})
+
 	})
 	.tap(function(){
 		console.log("----------")
@@ -734,6 +768,8 @@ function playOneRound(players, nthRound, world, stateObj, game) {
 	})
 	.then(_.compact)
 	.then(function(remainingPlayers) {
+		/*
+		// Obsolete - informing is done right after the turn.
 		// Inform those who lost during the round
 		var lostPlayers = _.difference(startedThisRoundPlayers, remainingPlayers);
 		_.map(lostPlayers, function(p) {
@@ -741,6 +777,7 @@ function playOneRound(players, nthRound, world, stateObj, game) {
 				topic: 'youLost'
 			});
 		})
+		*/
 
 		console.log("Round played - remaining: " + remainingPlayers.length);
 		if (remainingPlayers.length === 1) {

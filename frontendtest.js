@@ -161,12 +161,12 @@ Promise.try(function() {
 			console.log("Adding player to game: " + player.id);
 			game.addPlayer(player);
 			return resolve();
-		}, Math.random() * 1000 + 1000);
+		}, Math.random() * 1000 + 100);
 	}).catch(RegistrationNotOpen, function() {
 		console.log("--- Player failed to register - too late! ---");
 	})
 })
-.delay(1500)
+.delay(500)
 .then(function() {
 	game.launch();
 });
