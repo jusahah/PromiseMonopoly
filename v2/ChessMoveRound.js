@@ -57,14 +57,13 @@ function ChessMoveRound(settings) {
 	}
 
 	this.remainingPlayersAmountChanged = function(localWorld, players, actions) {
-		// Do nothing
-		return;
-		/*
+
 		if (players.length < 2) {
 			// Okay, end the round
+			console.log("/////////////// too few players")
 			actions.endMoveRound();
 		}
-		*/
+	
 	}
 
 }

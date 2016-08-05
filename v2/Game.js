@@ -13,8 +13,9 @@ function Game(initialWorld, players, phases) {
 	this.start = function() {
 		console.log("--- GAME STARTS ---");
 		console.log("Players len: " + this.__players.length);
+		console.log("World in Game: " + initialWorld.gamesPlayed);
 		return Promise.each(this.__phases, function(phase) {
-			
+			console.log("World in Phase loop: " + this.__world.gamesPlayed);
 			phase.__initialize(this.__world, this.__players);
 			return phase.__start().tap(function() {
 				

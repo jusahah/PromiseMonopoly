@@ -17,7 +17,8 @@ var chessMatch = new ChessMatch(
 	{
 		whiteWon: 0, 
 		blackWon: 0, 
-		draws: 0
+		draws: 0,
+		gamesPlayed: 0
 	},
 	[
 		new Player('white'),
