@@ -1,23 +1,32 @@
 var Promise = require('bluebird');
 var _ = require('lodash');
+var chalk = require('chalk');
 
 // Protos
 var Player = require('./Player');
 
-// Extends
+// MoveRounds
 var ChessMoveRound = require('./ChessMoveRound');
+
+// 
 
 var chessRound = new ChessMoveRound({
 	loop: true
 });
 
+
+
 console.log(chessRound.__settings);
 
 
-chessRound.initialize({parent: 0}, [
-	new Player('a'),
-	new Player('b'),
-	new Player('c')
+chessRound.__initialize({parent: 0}, [
+	new Player('white'),
+	new Player('black'),
 ])
 
-chessRound.start();
+chessRound.__start();
+
+setInterval(function() {
+
+	console.log(".");
+}, 150);

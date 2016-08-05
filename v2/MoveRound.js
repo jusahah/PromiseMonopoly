@@ -1,6 +1,43 @@
 var Promise = require('bluebird');
 var _ = require('lodash');
 
+// Action exceptions
+var RetryTurn = require('./actions/RetryTurn');
+var EndGame = require('./actions/EndGame');
+var EndMoveRound = require('./actions/EndMoveRound');
+
+// Errors
+var ExtendError = require('./errors/ExtendError');
+
+var actions = {
+	retryTurn: function() {
+		throw new RetryTurn();
+	},
+	endGame: function() {
+		throw new EndGame();
+	},
+	endMoveRound: function() {
+		throw new EndMoveRound;
+	}
+}
+
+/**
+* Customs:
+
+* Functions starting 'this.__' are defined in parent (MoveRound). They are not meant
+* to be extended by client-code.
+*
+* Other functions are defined in child classes. They are meant to be extended by client-code.
+*/
+
+/* Extending classes must provide at least following methods:
+*
+* 'initializeLocalWorld(parentWorld, players)'
+* 'checkMoveLegality(move, localWorld, player, actions)'
+* 'handleIllegalMove(move, localWorld, player, actions)'
+* 'handleLegalMove(move, localWorld, player, actions)'
+*/
+
 function MoveRound(settings) {
 	/** Type of this object */
 	this.__promisemonopolytype = 'MoveRound';
@@ -8,10 +45,12 @@ function MoveRound(settings) {
 	this.__participatingPlayers;
 	/** Save settings object */
 	this.__settings = settings;
+	/** Keeps track of local state during moveRound */
+	this.__localWorld;
 
 };
 
-MoveRound.prototype.initialize = function(parentWorld, players) {
+MoveRound.prototype.__initialize = function(parentWorld, players) {
 
 	console.log("INIT: MoveRound");
 
@@ -23,61 +62,116 @@ MoveRound.prototype.initialize = function(parentWorld, players) {
 	// Save copy of players so we know who are participating to this MoveRound
 	this.__participatingPlayers = _.slice(players);
 
-	return {};
+	// Call user-defined initializing of localWorld
+	this.__localWorld = this.initializeLocalWorld(parentWorld, _.slice(players));
+	return true;
+
 }
 /**
 * Starts a moveRound and plays it through
 * @param localWorld - Local state of this MoveRound object
 * @returns Promise - Promise to be fulfilled when moveRound is over
 */
-MoveRound.prototype.start = function(localWorld) {
+MoveRound.prototype.__start = function(localWorld) {
 
-	return this.loopRound(this.__participatingPlayers, localWorld);
+	return this.__loopRound(this.__participatingPlayers, this.__localWorld);
 
 }
 
-MoveRound.prototype.loopRound = function(players, localWorld) {
-	return this.oneRound(players, localWorld)
+MoveRound.prototype.__loopRound = function(players, localWorld) {
+	return this.__oneRound(players, localWorld)
 	// Filter away players who did not survive the round
 	.then(_.compact)
 	.then(function(remainingPlayers) {
 		console.log("Remainingp players len: " + remainingPlayers.length);
 		if (this.__settings.loop && remainingPlayers.length > 0) {
-			return this.loopRound(remainingPlayers, localWorld);
+			return this.__loopRound(remainingPlayers, localWorld);
 		}
 		// MoveRound is over
-		return this.destroy(localWorld);
+		return this.__destroy(localWorld);
 	}.bind(this));
 
 }
 
-MoveRound.prototype.oneRound = function(players, localWorld) {
+MoveRound.prototype.__oneRound = function(players, localWorld) {
 
 	return Promise.mapSeries(players, function(player) {
-		// Tell player to make a move and start waiting for the move
-		return player.move()
-		// Returns [true, move] if legal, otherwise [false, move];
-		.then(function(move) {
-			var isLegal = this.checkMoveLegality(move, localWorld);
-			return [isLegal, move];
-		}.bind(this))
-		// Handle legal and illegal moves
-		// Illegal: You probably want to just retry turn or remove player 
-		// Legal: You probably want to mutate localWorld based on move
-		.spread(function(isLegal, move) {
-			var handleRes;
-			if (isLegal === false) handleRes = this.handleIllegalMove(move, localWorld)
-			else if (isLegal === true) handleRes = this.handleLegalMove(move, localWorld)
-			else throw "Move legality did not return TRUE/FALSE: " + isLegal;	
-
-			if (handleRes === true) return player; // Allows to participate to next round
-			return null; // Removes player from next round
-		}.bind(this))
+		return this.__oneMove(player, localWorld, 1070);
 	}.bind(this));
 
 }
 
-MoveRound.prototype.destroy = function(localWorld) {
+MoveRound.prototype.__oneMove = function(player, localWorld, timeleft, retryCount) {
+	retryCount = retryCount || 0;
+	this.__broadcast({
+		topic: 'player_tomove',
+		gameID: 1,
+		playerID: player.id,
+		retryCount: retryCount
+	});
+
+	var dataForMove = this.beforeMoveRequest(localWorld, retryCount);
+	// Tell player to make a move and start waiting for the move
+	return player.move(dataForMove).timeout(timeleft)
+	// Returns [true, move] if legal, otherwise [false, move];
+	.then(function(move) {
+		return this.afterMoveReceived(move, retryCount);
+	}.bind(this))
+	.then(function(move) {
+		var isLegal = this.checkMoveLegality(move, localWorld, player, actions);
+		return [isLegal, move];
+	}.bind(this))
+	// Handle legal and illegal moves
+	// Illegal: You probably want to just retry turn or remove player 
+	// Legal: You probably want to mutate localWorld based on move
+	.spread(function(isLegal, move) {
+		var handleRes;
+		if (isLegal === false) {
+			handleRes = this.handleIllegalMove(move, localWorld, player, actions)
+		} 
+		else if (isLegal === true) {
+			handleRes = this.handleLegalMove(move, localWorld, player, actions)
+		}
+		else {
+			throw new ExtendError("Move legality did not return TRUE/FALSE: " + isLegal);	
+		}
+
+		if (handleRes === true) {
+			this.__broadcast({
+				topic: 'new_world',
+				gameID: 1,
+				world: this.broadcastNewWorld(localWorld)
+			});
+			return player; // Allows to participate to next round
+		}
+		return null; // Removes player from next round
+	}.bind(this))
+	.catch(Promise.TimeoutError, function() {
+		console.log("Player timed out");
+		this.__broadcast({
+			topic: 'player_timeout',
+			gameID: 1,
+			playerID: player.id
+		});
+		// Note!
+		// You can also return from catch and thus continue Promise chain!!
+		return this.handleTimeout(localWorld, player, actions);
+	}.bind(this))
+	.catch(RetryTurn, function() {
+		//console.log("Retrying player turn");
+		return this.__oneMove(player, localWorld, timeleft, retryCount+1);
+	}.bind(this))	
+}
+
+MoveRound.prototype.__broadcast = function(msg) {
+
+	_.map(this.__participatingPlayers, function(player) {
+		player.msg(msg);
+	})
+
+}
+
+MoveRound.prototype.__destroy = function(localWorld) {
 	console.log("DESTROY: MoveRound");
 	return localWorld;
 }
