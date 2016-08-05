@@ -25,7 +25,9 @@ function ChessMoveRound(settings) {
 	}
 
 	this.handleTimeout = function(localWorld, player, actions) {
-		actions.retryTurn();
+		//return actions.endGame();
+		//actions.retryTurn();
+		return false;
 	}
 
 	this.handleIllegalMove = function(move, localWorld, player, actions) {
@@ -52,6 +54,17 @@ function ChessMoveRound(settings) {
 
 	this.afterMoveReceived = function(move, retryCount) {
 		return move;
+	}
+
+	this.remainingPlayersAmountChanged = function(localWorld, players, actions) {
+		// Do nothing
+		return;
+		/*
+		if (players.length < 2) {
+			// Okay, end the round
+			actions.endMoveRound();
+		}
+		*/
 	}
 
 }

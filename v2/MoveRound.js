@@ -22,7 +22,7 @@ var actions = {
 }
 
 /**
-* Customs:
+* Conventions:
 
 * Functions starting 'this.__' are defined in parent (MoveRound). They are not meant
 * to be extended by client-code.
@@ -39,6 +39,7 @@ var actions = {
 */
 
 function MoveRound(settings) {
+	this.__phaseName = 'MoveRound';
 	/** Type of this object */
 	this.__promisemonopolytype = 'MoveRound';
 	/** Players who started this MoveRound */
@@ -52,7 +53,7 @@ function MoveRound(settings) {
 
 MoveRound.prototype.__initialize = function(parentWorld, players) {
 
-	console.log("INIT: MoveRound");
+	console.log("INIT: " + this.__phaseName);
 
 	// Create local state object that goes around while
 	// this MoveRound exists!
@@ -72,22 +73,33 @@ MoveRound.prototype.__initialize = function(parentWorld, players) {
 * @param localWorld - Local state of this MoveRound object
 * @returns Promise - Promise to be fulfilled when moveRound is over
 */
-MoveRound.prototype.__start = function(localWorld) {
+MoveRound.prototype.__start = function() {
 
 	return this.__loopRound(this.__participatingPlayers, this.__localWorld);
 
 }
 
 MoveRound.prototype.__loopRound = function(players, localWorld) {
+	var playersStartingCount = players.length;
 	return this.__oneRound(players, localWorld)
 	// Filter away players who did not survive the round
 	.then(_.compact)
 	.then(function(remainingPlayers) {
 		console.log("Remainingp players len: " + remainingPlayers.length);
+		
+		if (remainingPlayers.length !== playersStartingCount) {
+			this.remainingPlayersAmountChanged(localWorld, remainingPlayers, actions);
+		}
+
 		if (this.__settings.loop && remainingPlayers.length > 0) {
 			return this.__loopRound(remainingPlayers, localWorld);
 		}
+
+
 		// MoveRound is over
+		actions.endMoveRound();
+	}.bind(this))
+	.catch(EndMoveRound, function() {
 		return this.__destroy(localWorld);
 	}.bind(this));
 
@@ -96,7 +108,7 @@ MoveRound.prototype.__loopRound = function(players, localWorld) {
 MoveRound.prototype.__oneRound = function(players, localWorld) {
 
 	return Promise.mapSeries(players, function(player) {
-		return this.__oneMove(player, localWorld, 1070);
+		return this.__oneMove(player, localWorld, 1160);
 	}.bind(this));
 
 }
@@ -172,7 +184,7 @@ MoveRound.prototype.__broadcast = function(msg) {
 }
 
 MoveRound.prototype.__destroy = function(localWorld) {
-	console.log("DESTROY: MoveRound");
+	console.log("DESTROY: " + this.__phaseName);
 	return localWorld;
 }
 
