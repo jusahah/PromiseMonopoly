@@ -67,6 +67,12 @@ function GamePhase(phaseName, settings, subphases) {
 
 	}
 
+	this.broadcast = function(msg) {
+		_.map(this.__participatingPlayers, function(player) {
+			player.msg(msg);
+		})
+	}
+
 	this.initializeLocalWorld = function(parentWorld) {
 		return parentWorld;
 	}

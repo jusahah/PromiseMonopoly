@@ -1,16 +1,24 @@
 var Promise = require('bluebird');
 var _ = require('lodash');
-var chalk = require('chalk');
 
 var fixedTime = 1000;
 var variableTime = 200;
 
-function Player(id) {
+function Player(user) {
 
-	this.id = id;
+	this.user = user;
+
+	this.game = null;
 
 	this.move = function(moveInfo) {
-		this.msg({topic: 'yourMove'});
+		// From here we route to User with gameID attached!
+		if (this.user && this.game) {
+			this.user.msg({
+				topic: 'yourMove',
+				gameID: game.getID(),
+			});
+		}
+		//this.msg({topic: 'yourMove'});
 		return Promise.delay(fixedTime + Math.random() * variableTime).then(function() {
 			// Get random move out of moveInfo which contains array of legal moves
 			var randomMove = _.sample(moveInfo);
@@ -20,10 +28,24 @@ function Player(id) {
 	}
 
 	this.msg = function(msg) {
-		msg = JSON.stringify(msg);
-		msg = this.id === 'white' ? chalk.black.bgWhite(msg) : chalk.bgBlack(msg);
-		console.log(msg);
+		// From here we route to User with gameID attached!
+		if (this.user) {
+			// Decorate with game id
+			if (this.game) msg.gameID = game.getID();
+			this.user.msg(msg);
+		}		
+
 	}
+
+	this.getID = function() {
+		return this.user.id;
+	}
+	// Forward call
+	this.beforeRegistration = function() {
+		return this.user.beforeRegistration();
+	}
+
+
 
 
 }

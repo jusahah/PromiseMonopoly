@@ -3,6 +3,7 @@ var _ = require('lodash');
 var chalk = require('chalk');
 
 // Protos
+var User = require('./User');
 var Player = require('./Player');
 var GamePhase = require('./GamePhase');
 var Game = require('./Game');
@@ -12,6 +13,9 @@ var ChessMatch = require('./ChessMatch');
 var ChessGame  = require('./ChessGame');
 var ChessMoveRound = require('./ChessMoveRound');
 
+var whiteUser = new User('white');
+var blackUser = new User('black');
+var redUser   = new User('red');
 
 var chessMatch = new ChessMatch(
 	{
@@ -20,10 +24,6 @@ var chessMatch = new ChessMatch(
 		draws: 0,
 		gamesPlayed: 0
 	},
-	[
-		new Player('white'),
-		new Player('black'),
-	],
 	[
 		new ChessGame(
 			{
@@ -38,7 +38,20 @@ var chessMatch = new ChessMatch(
 	]
 )
 
-chessMatch.start();
+var redRes   = chessMatch.addPlayer(new Player(redUser));
+var blackRes = chessMatch.addPlayer(new Player(blackUser));
+var whiteRes = chessMatch.addPlayer(new Player(whiteUser));
+
+Promise.all([whiteRes, blackRes, redRes])
+.then(function(registrationResults) {
+	console.log("Reg results");
+	console.log(registrationResults);
+})
+.then(function() {
+	//chessMatch.start();
+})
+
+
 
 /*
 var game = new Game(

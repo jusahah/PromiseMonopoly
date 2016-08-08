@@ -9,8 +9,13 @@ function ChessGame(settings, phases) {
 
 	this.beforeLoop = function(localWorld, actions) {
 		console.log("Games played: " + localWorld.gamesPlayed)	
+
+		this.broadcast({
+			topic: 'games_played',
+			msg: localWorld.gamesPlayed
+		});
 		// If already enoguh games, end the match
-		if (localWorld.gamesPlayed === 5) {
+		if (localWorld.gamesPlayed === 3) {
 			actions.endGame();
 		}	
 	}

@@ -118,7 +118,7 @@ MoveRound.prototype.__oneMove = function(player, localWorld, timeleft, retryCoun
 	this.__broadcast({
 		topic: 'player_tomove',
 		gameID: 1,
-		playerID: player.id,
+		playerID: player.getID(),
 		retryCount: retryCount
 	});
 
@@ -163,7 +163,7 @@ MoveRound.prototype.__oneMove = function(player, localWorld, timeleft, retryCoun
 		this.__broadcast({
 			topic: 'player_timeout',
 			gameID: 1,
-			playerID: player.id
+			playerID: player.getID()
 		});
 		// Note!
 		// You can also return from catch and thus continue Promise chain!!
