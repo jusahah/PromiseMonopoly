@@ -37,8 +37,14 @@ var pokerHand = new PokerHand(
 var p1 = new User('p1');
 var p2 = new User('p2');
 var p3 = new User('p3');
+var p4 = new User('p4');
 
-Promise.all([pokerHand.register(p1), pokerHand.register(p2), pokerHand.register(p3)])
+Promise.all([
+	pokerHand.register(p1), 
+	pokerHand.register(p2), 
+	pokerHand.register(p3), 
+	pokerHand.register(p4)
+])
 .then(function(regResults) {
 	console.log('Reg results');
 	console.log(regResults);

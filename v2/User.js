@@ -25,14 +25,17 @@ function User(id) {
 
 	this.msg = function(msg) {
 		msg = JSON.stringify(msg);
-		if (this.id === 'white') {
+		if (this.id === 'white' || this.id === 'p1') {
 			console.log(chalk.black.bgWhite(msg));
 		}
-		else if (this.id === 'black') {
+		else if (this.id === 'black' || this.id === 'p2') {
 			console.log(chalk.bgBlack(msg));
 		} 
-		else if (this.id === 'red') {
+		else if (this.id === 'red' || this.id === 'p3') {
 			console.log(chalk.red.bgYellow(msg));
+		}
+		else if (this.id === 'green' || this.id === 'p4') {
+			console.log(chalk.white.bgGreen(msg));
 		}
 	}
 
