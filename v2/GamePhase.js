@@ -77,6 +77,17 @@ function GamePhase(phaseName, settings, subphases) {
 		return parentWorld;
 	}
 
+	this.beforeLoop = function() {
+		return true;
+	}
+
+	this.afterLoop = function() {
+		return true;
+	}
+
+	this.beforeDestroy = function() {
+		return true;
+	}
 }
 
 module.exports = GamePhase;

@@ -18,12 +18,18 @@ function Game(initialWorld, phases) {
 	this.__players = [];
 	this.__phases = phases;
 
+	// We should later abstract these into State pattern or smth
 	this.__registrationClosed = false;
+	this.__gameEnded = false;
 
 	this.start = function() {
 		console.log("--- GAME STARTS ---");
 		console.log("Players len: " + this.__players.length);
 		console.log("World in Game: " + initialWorld.gamesPlayed);
+
+		// Run through separate initialization function
+		this.__world = this.initializeLocalWorld(this.__world, this.__players);
+
 		return Promise.each(this.__phases, function(phase) {
 			console.log("World in Phase loop: " + this.__world.gamesPlayed);
 			phase.__initialize(this.__world, this.__players);
@@ -32,9 +38,19 @@ function Game(initialWorld, phases) {
 			})
 		}.bind(this)).tap(function() {
 			console.log("--- GAME ENDS ---");
-		}).catch(EndGame, function() {
+			this.__endGame();
+		}.bind(this)).catch(EndGame, function() {
 			console.log("Game ended by action call!");
-		})
+			this.__endGame();
+		}.bind(this))
+	}
+
+	this.__endGame = function() {
+		this.__gameEnded = true;
+		this.broadcast({
+			topic: 'game_ended',
+		});
+
 	}
 
 	this.__registerUser = function(user) {
@@ -108,6 +124,10 @@ function Game(initialWorld, phases) {
 
 	this.__getID = function() {
 		return this.id;
+	}
+
+	this.initializeLocalWorld = function(world, _players) {
+		return world;
 	}
  
 }

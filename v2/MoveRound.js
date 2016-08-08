@@ -188,5 +188,37 @@ MoveRound.prototype.__destroy = function(localWorld) {
 	return localWorld;
 }
 
+MoveRound.prototype.beforeMoveRequest = function() {
+	return true;
+}
+
+MoveRound.prototype.afterMoveReceived = function(move, retryCount) {
+	return move;
+}
+
+MoveRound.prototype.handleTimeout = function(localWorld, player, actions) {
+	return false;
+}
+
+MoveRound.prototype.checkMoveLegality = function(move, localWorld, player, actions) {
+	return true;
+}
+
+MoveRound.prototype.handleIllegalMove = function(move, localWorld, player, actions) {	
+	actions.retryTurn(); // Make player move again
+} 
+
+MoveRound.prototype.handleLegalMove = function(move, localWorld, player, actions) {
+	return true;
+}
+
+MoveRound.prototype.remainingPlayersAmountChanged = function(localWorld, players, actions) {
+	return true;
+}
+MoveRound.prototype.broadcastNewWorld = function(localWorld) {
+	return localWorld;
+}
+
+
 module.exports = MoveRound;
 
