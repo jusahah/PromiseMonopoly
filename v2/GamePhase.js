@@ -67,7 +67,7 @@ function GamePhase(phaseName, settings, subphases) {
 
 	}
 
-	this.broadcast = function(msg) {
+	this.__broadcast = function(msg) {
 		_.map(this.__participatingPlayers, function(player) {
 			player.msg(msg);
 		})

@@ -37,10 +37,14 @@ var chessMatch = new ChessMatch(
 		),	
 	]
 )
-
-var redRes   = chessMatch.addPlayer(new Player(redUser));
-var blackRes = chessMatch.addPlayer(new Player(blackUser));
-var whiteRes = chessMatch.addPlayer(new Player(whiteUser));
+console.log("/////////  1 reg ////////")
+var redRes   = chessMatch.register(redUser);
+console.log("/////////  2 reg ////////")
+var redRes   = chessMatch.register(redUser);
+console.log("/////////  3 reg ////////")
+var blackRes = chessMatch.register(blackUser);
+console.log("/////////  4 reg ////////")
+var whiteRes = chessMatch.register(whiteUser);
 
 Promise.all([whiteRes, blackRes, redRes])
 .then(function(registrationResults) {

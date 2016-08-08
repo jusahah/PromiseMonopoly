@@ -8,7 +8,7 @@ function ChessMatch(initialWorld, phases) {
 	Game.call(this, initialWorld, phases);
 
 	this.beforeRegistration = function(
-		player, 
+		user, 
 		players, 
 		registrationPreventAction, 
 		registerAndStartGameAction

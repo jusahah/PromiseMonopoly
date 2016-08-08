@@ -6,14 +6,17 @@ function User(id) {
 	/** If set -> user is currently playing */
 	this.player = null;
 
-	this.setPlayerLink = function(player) {
+	this.setPlayer = function(player) {
+		console.log(this.id + " :setting player link to User");
 		this.player = player;
 	}
 
-	this.beforeRegistration = function(registrationPreventException) {
-		if (this.player) {
+	this.beforeRegistration = function(registrationPreventAction) {
+		console.log("--- USER: beforeRegistration inGame? " + this.__inGame());
+		if (this.__inGame()) {
 			// Already playing
-			throw registrationPreventException;
+			console.log("--USER(" + this.id + ") already playing!");
+			return registrationPreventAction();
 		}
 
 		return true;
@@ -31,6 +34,10 @@ function User(id) {
 		else if (this.id === 'red') {
 			console.log(chalk.red.bgYellow(msg));
 		}
+	}
+
+	this.__inGame = function() {
+		return !!this.player;
 	}
 
 

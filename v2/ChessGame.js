@@ -10,7 +10,7 @@ function ChessGame(settings, phases) {
 	this.beforeLoop = function(localWorld, actions) {
 		console.log("Games played: " + localWorld.gamesPlayed)	
 
-		this.broadcast({
+		this.__broadcast({
 			topic: 'games_played',
 			msg: localWorld.gamesPlayed
 		});

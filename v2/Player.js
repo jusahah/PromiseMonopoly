@@ -7,6 +7,8 @@ var variableTime = 200;
 function Player(user) {
 
 	this.user = user;
+	/** Set link from User to this Player obj */
+	this.user.setPlayer(this);
 
 	this.game = null;
 
@@ -15,7 +17,7 @@ function Player(user) {
 		if (this.user && this.game) {
 			this.user.msg({
 				topic: 'yourMove',
-				gameID: game.getID(),
+				gameID: this.game.__getID(),
 			});
 		}
 		//this.msg({topic: 'yourMove'});
@@ -27,11 +29,15 @@ function Player(user) {
 		})		
 	}
 
+	this.__setGame = function(game) {
+		this.game = game;
+	}
+
 	this.msg = function(msg) {
 		// From here we route to User with gameID attached!
 		if (this.user) {
 			// Decorate with game id
-			if (this.game) msg.gameID = game.getID();
+			if (this.game) msg.gameID = this.game.__getID();
 			this.user.msg(msg);
 		}		
 
@@ -40,13 +46,6 @@ function Player(user) {
 	this.getID = function() {
 		return this.user.id;
 	}
-	// Forward call
-	this.beforeRegistration = function() {
-		return this.user.beforeRegistration();
-	}
-
-
-
 
 }
 

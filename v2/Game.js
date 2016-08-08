@@ -1,6 +1,9 @@
 var Promise = require('bluebird');
 var _ = require('lodash');
 
+// Domain objs
+var Player = require('./Player');
+
 // Actions
 var EndGame = require('./actions/EndGame');
 
@@ -34,11 +37,19 @@ function Game(initialWorld, phases) {
 		})
 	}
 
-	this.addPlayer = function(player) {
+	this.__registerUser = function(user) {
+
+		// Does all the linking between User, Player and Game
+
+		var player = new Player(user);
+
+		this.__players.push(player);
+		player.__setGame(this);
+	}
+
+	this.register = function(user) {
 		// Call game beforeRegistration extended method
 		// Provide extended method a way to abort registration through raising an exception 
-
-
 
 		return Promise.try(function() {
 
@@ -46,9 +57,13 @@ function Game(initialWorld, phases) {
 				// Already closed
 				throw new RegistrationPrevent();
 			}
+			// This must be before game's beforeRegistration hook!
+			user.beforeRegistration(function() {
+				throw new RegistrationPrevent();
+			});
 
 			this.beforeRegistration(
-				player, 
+				user, 
 				_.slice(this.__players), 
 				/* We pass in actions the hook can trigger! */
 				function() {
@@ -59,14 +74,14 @@ function Game(initialWorld, phases) {
 					throw new RegisterAndStartGameAction();
 				}.bind(this)
 			);
-			player.beforeRegistration(new RegistrationPrevent());
+
 			// If neither raised an exception, add the player in!
-			this.__players.push(player);
+			this.__registerUser(user);
 			return true;
 		}.bind(this))
 		.catch(RegistrationPrevent, function(err) {
 			console.log("---Registration prevented!---");
-			player.msg({
+			user.msg({
 				topic: 'registration_prevent',
 				gameID: this.id
 			})
@@ -74,7 +89,7 @@ function Game(initialWorld, phases) {
 		}.bind(this))
 		.catch(RegisterAndStartGameAction, function() {
 			console.log("REGISTER AND START");
-			this.__players.push(player);
+			this.__registerUser(user);
 			this.start();
 			return true;
 		}.bind(this));
@@ -91,6 +106,10 @@ function Game(initialWorld, phases) {
 		}.bind(this))
 	}
 
+	this.__getID = function() {
+		return this.id;
+	}
+ 
 }
 
 module.exports = Game;
