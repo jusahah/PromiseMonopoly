@@ -7,15 +7,15 @@ function User(id) {
 	this.player = null;
 
 	this.setPlayer = function(player) {
-		console.log(this.id + " :setting player link to User");
+		//console.log(this.id + " :setting player link to User");
 		this.player = player;
 	}
 
 	this.beforeRegistration = function(registrationPreventAction) {
-		console.log("--- USER: beforeRegistration inGame? " + this.__inGame());
+		//console.log("--- USER: beforeRegistration inGame? " + this.__inGame());
 		if (this.__inGame()) {
 			// Already playing
-			console.log("--USER(" + this.id + ") already playing!");
+			//console.log("--USER(" + this.id + ") already playing!");
 			return registrationPreventAction();
 		}
 
@@ -24,6 +24,7 @@ function User(id) {
 	}
 
 	this.msg = function(msg) {
+	
 		msg = JSON.stringify(msg);
 		if (this.id === 'white' || this.id === 'p1') {
 			console.log(chalk.black.bgWhite(msg));
@@ -37,6 +38,10 @@ function User(id) {
 		else if (this.id === 'green' || this.id === 'p4') {
 			console.log(chalk.white.bgGreen(msg));
 		}
+	}
+
+	this.disconnect = function() {
+		if (this.player) this.player.disconnect();
 	}
 
 	this.__inGame = function() {

@@ -12,6 +12,8 @@ function Player(user) {
 
 	this.game = null;
 
+	this.__hasDisconnected = false;
+
 	this.move = function(moveInfo) {
 		// From here we route to User with gameID attached!
 		if (this.user && this.game) {
@@ -24,13 +26,24 @@ function Player(user) {
 		return Promise.delay(fixedTime + Math.random() * variableTime).then(function() {
 			// Get random move out of moveInfo which contains array of legal moves
 			var randomMove = _.sample(moveInfo);
-			console.log("Random move: " + randomMove);
+			//console.log("Random move: " + randomMove);
 			return randomMove;
 		})		
 	}
 
 	this.__setGame = function(game) {
 		this.game = game;
+	}
+
+	this.disconnect = function() {
+		this.__hasDisconnected = true;
+		console.log("Player disconnect: " + this.__hasDisconnected);
+		if (this.game) this.game.__playerDisconnected(this);
+	}
+
+	this.hasDisconnected = function() {
+		//console.log("hasDisconnected? " + this.getID() + ": " + this.__hasDisconnected);
+		return this.__hasDisconnected;
 	}
 
 	this.msg = function(msg) {

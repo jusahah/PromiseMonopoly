@@ -1,6 +1,8 @@
 var Promise = require('bluebird');
 var _ = require('lodash');
 
+var recursiveLog = require('./recursiveLog');
+
 // Action exceptions
 var RetryTurn = require('./actions/RetryTurn');
 var EndGame = require('./actions/EndGame');
@@ -53,7 +55,7 @@ function MoveRound(settings) {
 
 MoveRound.prototype.__initialize = function(globalState, players) {
 
-	console.log("INIT: " + this.__phaseName);
+	//console.log("INIT: " + this.__phaseName);
 
 	// Create local state object that goes around while
 	// this MoveRound exists!
@@ -75,7 +77,8 @@ MoveRound.prototype.__initialize = function(globalState, players) {
 * @returns Promise - Promise to be fulfilled when moveRound is over
 */
 MoveRound.prototype.__start = function() {
-
+	recursiveLog.push();
+	recursiveLog.log('START: MoveRound');
 	return this.__loopRound(this.__participatingPlayers);
 
 }
@@ -86,7 +89,7 @@ MoveRound.prototype.__loopRound = function(players) {
 	// Filter away players who did not survive the round
 	.then(_.compact)
 	.then(function(remainingPlayers) {
-		console.log("Remainingp players len: " + remainingPlayers.length);
+		//console.log("Remainingp players len: " + remainingPlayers.length);
 		
 		if (remainingPlayers.length !== playersStartingCount) {
 			this.remainingPlayersAmountChanged(this.__globalStatePointer, remainingPlayers, actions);
@@ -107,14 +110,16 @@ MoveRound.prototype.__loopRound = function(players) {
 }
 
 MoveRound.prototype.__oneRound = function(players) {
-
+	recursiveLog.log('START: Individual round of moves');
 	return Promise.mapSeries(players, function(player) {
+		if (player.hasDisconnected()) return null;
 		return this.__oneMove(player, 1160);
 	}.bind(this));
 
 }
 
 MoveRound.prototype.__oneMove = function(player, timeleft, retryCount) {
+	recursiveLog.log('-Request: Individual move for: ' + player.getID());
 	retryCount = retryCount || 0;
 	this.__broadcast({
 		topic: 'player_tomove',
@@ -158,7 +163,7 @@ MoveRound.prototype.__oneMove = function(player, timeleft, retryCount) {
 		return null; // Removes player from next round
 	}.bind(this))
 	.catch(Promise.TimeoutError, function() {
-		console.log("Player timed out");
+		//console.log("Player timed out");
 		this.__broadcast({
 			topic: 'player_timeout',
 			playerID: player.getID()
@@ -168,7 +173,7 @@ MoveRound.prototype.__oneMove = function(player, timeleft, retryCount) {
 		return this.handleTimeout(this.__globalStatePointer, player, actions);
 	}.bind(this))
 	.catch(RetryTurn, function() {
-		//console.log("Retrying player turn");
+		////console.log("Retrying player turn");
 		return this.__oneMove(player, timeleft, retryCount+1);
 	}.bind(this))	
 }
@@ -182,42 +187,59 @@ MoveRound.prototype.__broadcast = function(msg) {
 }
 
 MoveRound.prototype.onEnter = function(globalState, players) {
+	globalState.moverounds++;
+}
+
+
+MoveRound.prototype.onExit = function(globalState) {
 	return true;
 }
 
 MoveRound.prototype.__destroy = function(globalState) {
-	console.log("DESTROY: " + this.__phaseName);
+	recursiveLog.log('STOP: MoveRound');
+	recursiveLog.pop();
+	this.onExit(this.__globalStatePointer);
+	//console.log("DESTROY: " + this.__phaseName);
 	return globalState;
 }
 
 MoveRound.prototype.beforeMove = function(globalState) {
+	recursiveLog.log2('Hook: beforeMove');
 	return true;
 }
 
 MoveRound.prototype.afterMove = function(move, globalState, retryCount) {
+	recursiveLog.log2('Hook: afterMove');
 	return move;
 }
 
 MoveRound.prototype.handleTimeout = function(globalState, player, actions) {
+	recursiveLog.log2('Hook: handleTimeout');
 	return false;
 }
 
 MoveRound.prototype.checkMoveLegality = function(move, globalState, player, actions) {
+	recursiveLog.log2('Hook: checkMoveLegality');
+	return Math.random() < 0.9995;
 	return true;
 }
 
 MoveRound.prototype.handleIllegalMove = function(move, globalState, player, actions) {	
+	recursiveLog.log2('Hook: handleIllegalMove');
 	actions.retryTurn(); // Make player move again
 } 
 
 MoveRound.prototype.handleLegalMove = function(move, globalState, player, actions) {
+	recursiveLog.log2('Hook: handleLegalMove');
 	return true;
 }
 
 MoveRound.prototype.remainingPlayersAmountChanged = function(globalState, players, actions) {
+	recursiveLog.log2('Hook: remainingPlayersAmountChanged');
 	return true;
 }
 MoveRound.prototype.broadcastNewWorld = function(globalState) {
+	recursiveLog.log2('Hook: broadcastNewWorld');
 	return globalState;
 }
 
