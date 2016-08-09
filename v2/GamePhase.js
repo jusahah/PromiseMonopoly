@@ -36,6 +36,10 @@ function GamePhase(phaseName, settings, subphases) {
 		console.log("World: " + parentWorld.gamesPlayed)
 		this.__participatingPlayers = _.slice(players);
 		this.__localWorld = this.initializeLocalWorld(parentWorld, _.slice(players));
+		this.__broadcast({
+			topic: 'new_world',
+			world: this.broadcastNewWorld(this.__localWorld)
+		});
 
 		return true;
 
@@ -88,6 +92,57 @@ function GamePhase(phaseName, settings, subphases) {
 	this.beforeDestroy = function() {
 		return true;
 	}
+
+	this.broadcastNewWorld = function(localWorld) {
+		return localWorld;
+	}
 }
 
 module.exports = GamePhase;
+
+
+/*
+
+Always pass a pointer to global state around!! (subphases can then implement their
+own stack of local states on it)
+
+GamePhase = {
+	
+	this.onEnter = function() {},
+	this.onExit  = function() {},
+	this.beforeLoop = function() {},
+	this.afterLoop = function() {},
+	this.broadcastNewWorld = function() {}
+}
+
+Game = {
+	
+	this.register,
+	this.start,
+
+	this.onStart,
+	this.onEnd,
+
+	this.broadcastNewWorld
+}
+
+MoveRound = {
+	
+	this.beforeMove,
+	this.afterMove,
+
+	this.beforeRound,
+	this.afterRound,
+
+	this.handleTimeout,
+	this.handleLegalMove,
+	this.handleIllegalMove,
+	this.checkMoveLegality,
+
+	this.broadcastNewWorld,
+	this.remainingPlayersAmountChanged
+
+}
+
+*/
+

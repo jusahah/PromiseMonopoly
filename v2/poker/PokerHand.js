@@ -22,9 +22,19 @@ function PokerHand(initialWorld, phases) {
 			return player.getID();
 		});
 
-		return _.mapValues(playersByID, function(player) {
+		var playersState = _.mapValues(playersByID, function(player) {
 			return {chips: world.chips, hand: _.sampleSize(cardsInPlay, 2)}
 		});
+
+		var tableState = {
+			deck: cardsInPlay,
+			boardCards: [],
+		}
+
+		return {
+			players: playersState,
+			table: tableState
+		}
 
 	}
 
