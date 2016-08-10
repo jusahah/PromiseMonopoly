@@ -84,6 +84,13 @@ MoveRound.prototype.__start = function() {
 }
 
 MoveRound.prototype.__loopRound = function(players) {
+	console.log('--------')
+	console.log('--------')
+	console.log('--------')
+	console.log("LOOP ROUND: " + players.length);
+	console.log('--------')
+	console.log('--------')
+	console.log('--------')
 	var playersStartingCount = players.length;
 	return this.__oneRound(players)
 	// Filter away players who did not survive the round
@@ -113,7 +120,7 @@ MoveRound.prototype.__oneRound = function(players) {
 	recursiveLog.log('START: Individual round of moves');
 	return Promise.mapSeries(players, function(player) {
 		if (player.hasDisconnected()) return null;
-		return this.__oneMove(player, 1160);
+		return this.__oneMove(player, 160);
 	}.bind(this));
 
 }

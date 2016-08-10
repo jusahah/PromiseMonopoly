@@ -203,26 +203,7 @@ describe('Moveround communication to players', function() {
 				]);
 				done();
 			})
-			/*
-			mw.__initialize({white: 0, black: 0, red: 0}, [whitePlayer, blackPlayer, redPlayer]);
-			mw.__start().then(function() {
-				expect(handleMoveInvocations).to.deep.equal([
-					'legal',
-					'illegal',
-					'illegal',
-					'legal',
-					'legal',
-					'illegal',
-					'illegal',
-					'legal',
-					'legal',
-					'illegal',
-					'illegal',
-					'legal'										
-				]);
-				done();
-			})
-			*/
+
 		});
 	});
 })

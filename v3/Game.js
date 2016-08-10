@@ -61,8 +61,12 @@ function Game(initialWorld, phases) {
 	this.__registerUser = function(user) {
 
 		// Does all the linking between User, Player and Game
-
-		var player = new Player(user);
+		var player;
+		if (user instanceof Player) {
+			player = user;
+		} else {
+			player = new Player(user);
+		}
 
 		this.__players.push(player);
 		player.__setGame(this);
@@ -72,9 +76,15 @@ function Game(initialWorld, phases) {
 		});
 	}
 
-	this.register = function(user) {
+	this.register = function(userPolym) {
 		// Call game beforeRegistration extended method
 		// Provide extended method a way to abort registration through raising an exception 
+		var user;
+		if (userPolym instanceof Player) {
+			user = userPolym.user
+		} else {
+			user = userPolym;
+		}
 
 		return Promise.try(function() {
 
@@ -101,7 +111,7 @@ function Game(initialWorld, phases) {
 			);
 
 			// If neither raised an exception, add the player in!
-			this.__registerUser(user);
+			this.__registerUser(userPolym);
 			return true;
 		}.bind(this))
 		.catch(RegistrationPrevent, function(err) {
@@ -114,7 +124,7 @@ function Game(initialWorld, phases) {
 		}.bind(this))
 		.catch(RegisterAndStartGameAction, function() {
 
-			this.__registerUser(user);
+			this.__registerUser(userPolym);
 			this.start();
 			return true;
 		}.bind(this));

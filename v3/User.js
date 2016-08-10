@@ -15,7 +15,7 @@ function User(id) {
 		//console.log("--- USER: beforeRegistration inGame? " + this.__inGame());
 		if (this.__inGame()) {
 			// Already playing
-			//console.log("--USER(" + this.id + ") already playing!");
+			console.log("--USER(" + this.id + ") already playing!");
 			return registrationPreventAction();
 		}
 
