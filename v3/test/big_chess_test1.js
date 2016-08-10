@@ -331,3 +331,112 @@ describe('Chess test 2', function() {
 	});
 
 });
+
+describe('Draw-a-card test', function() {
+
+	it('A should win twice, B once, C none', function(done) {
+
+		var rounds = {
+
+			A: [1,2,3],
+			B: [3,0,0],
+			C: [2,1,2]
+
+		};
+
+		var AUser = new User('A')
+		var BUser = new User('B')
+		var CUser = new User('C')
+
+		var oneRound = new MoveRound({loop: false});
+
+		var globalStateObj = {
+			wins: {
+				A: 0, 
+				B: 0, 
+				C: 0
+			},
+			current: {}
+		};
+		var bestOfThree = new Game(globalStateObj, [oneRound, oneRound, oneRound]);
+
+		var broadcasts = [];
+		var moveCommands = [];
+
+		oneRound.handleLegalMove = function(move, globalState, player, actions) {
+			globalState.current[player.getID()] = move;
+			return true;
+		}
+
+		oneRound.broadcastNewWorld = function(globalState) {
+			broadcasts.push(_.assign({}, globalState.wins));
+			return _.assign({}, globalState.wins)
+		}	
+
+		oneRound.beforeLoopRound = function(globalState, players) {
+			console.log(globalState.wins);
+			globalState.current = {};
+		}	
+
+		oneRound.afterLoopRound = function(globalState, _remainingPlayers) {
+			console.log(globalState)
+			var nameValuePairs = _.toPairs(globalState.current);
+			console.log(nameValuePairs)
+
+			var sorted = _.sortBy(nameValuePairs, function(nameValueArr) {
+				return (-1) * nameValueArr[1];
+			});
+
+			globalState.wins[sorted[0][0]]++;	
+
+			console.log(globalState.wins);
+		}
+
+		bestOfThree.register(AUser)
+		.then(function() {
+			bestOfThree.register(BUser);
+		})
+		.then(function() {
+			bestOfThree.register(CUser);
+		})
+		.then(function() {
+			// Extends after-hand the Player objects of Users
+			var APlayer = AUser.player;
+			var BPlayer = BUser.player;
+			var CPlayer = CUser.player;
+
+			APlayer.move = function() {
+				console.log("---- A MOVE---");
+				moveCommands.push('A');
+
+				return Promise.delay(10).return(rounds['A'].shift());
+			}
+			BPlayer.move = function() {
+				console.log("--- B MOVE----")
+				moveCommands.push('B');
+	
+				return Promise.delay(10).return(rounds['B'].shift());
+			}
+			CPlayer.move = function() {
+				console.log("--- C MOVE----")
+				moveCommands.push('C');
+	
+				return Promise.delay(10).return(rounds['C'].shift());
+			}
+			return true;
+		})		
+		.then(function() {
+			return bestOfThree.start();
+		})
+		.then(function() {
+			expect(globalStateObj.wins).to.deep.equal({
+				A: 2,
+				B: 1,
+				C: 0
+			});
+			done();
+		})			
+
+
+	})
+})

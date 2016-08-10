@@ -84,17 +84,17 @@ MoveRound.prototype.__start = function() {
 }
 
 MoveRound.prototype.__loopRound = function(players) {
-	console.log('--------')
-	console.log('--------')
-	console.log('--------')
-	console.log("LOOP ROUND: " + players.length);
-	console.log('--------')
-	console.log('--------')
-	console.log('--------')
+
+	console.log("-----LOOP ROUND: " + players.length);
+
 	var playersStartingCount = players.length;
+	this.beforeLoopRound(this.__globalStatePointer, players);
 	return this.__oneRound(players)
 	// Filter away players who did not survive the round
 	.then(_.compact)
+	.tap(function(remainingPlayers) {
+		this.afterLoopRound(this.__globalStatePointer, remainingPlayers);
+	}.bind(this))
 	.then(function(remainingPlayers) {
 		//console.log("Remainingp players len: " + remainingPlayers.length);
 		
@@ -188,6 +188,8 @@ MoveRound.prototype.__oneMove = function(player, timeleft, retryCount) {
 		////console.log("Retrying player turn");
 		return this.__oneMove(player, timeleft, retryCount+1);
 	}.bind(this))
+	// We practically need to catch and rethrow all terminal exceptions so that we
+	// can in between catch and rethrow broadcast new state one last time.
 	.catch(EndGame, function(err) {
 		// Broadcast first, then rethrow
 		this.__broadcast({
@@ -204,6 +206,14 @@ MoveRound.prototype.__broadcast = function(msg) {
 		player.msg(msg);
 	})
 
+}
+
+MoveRound.prototype.beforeLoopRound = function(globalState, players) {
+	recursiveLog.log2('Hook: beforeLoopRound');
+}
+
+MoveRound.prototype.afterLoopRound = function(globalState, players) {
+	recursiveLog.log2('Hook: afterLoopRound');
 }
 
 MoveRound.prototype.onEnter = function(globalState, players) {
