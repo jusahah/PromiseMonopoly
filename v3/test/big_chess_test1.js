@@ -180,8 +180,151 @@ describe('Chess test', function() {
 					"r1bqkbnr/pppppppp/n7/8/3PP3/8/PPP2PPP/RNBQKBNR b KQkq d3 0 2",
 					"1rbqkbnr/pppppppp/n7/8/3PP3/8/PPP2PPP/RNBQKBNR w KQk - 1 3",
 					"1rbqkbnr/pppppppp/n7/8/3PP3/5N2/PPP2PPP/RNBQKB1R b KQk - 2 3",
-					"1rbqkb1r/pppppppp/n6n/8/3PP3/5N2/PPP2PPP/RNBQKB1R w KQk - 3 4"
+					"1rbqkb1r/pppppppp/n6n/8/3PP3/5N2/PPP2PPP/RNBQKB1R w KQk - 3 4",
+					"1rbqkb1r/pppppppp/n6n/8/3PP3/5N2/PPP2PPP/RNBQKB1R w KQk - 3 4" 
 				])
+				done();
+			})
+		});
+	});
+
+});
+
+describe('Chess test 2', function() {
+	describe('Play a short game to quick mate', function() {
+		// Build the world 
+		var whiteUser = new User('white')
+		var blackUser = new User('black')
+
+		var whiteMoveList = [
+			{
+				move: 'e4',
+				time: 20
+			},
+			{
+				move: 'e2', // Illegal, should retry
+				time: 20
+			},
+			{
+				move: 'd4',
+				time: 50
+			},
+			{
+				move: 'Qh5', // Mate
+				time: 40
+			}
+					
+
+		]
+
+		var blackMoveList = [
+			{
+				move: 'f6', 
+				time: 20
+			},
+			{
+				move: 'g5', 
+				time: 20
+			}
+			,
+			{
+				move: 'a6', 
+				time: 20
+			}		
+		]
+
+		var movePair = new MoveRound({loop: true});
+		var chessGame = new Game({game: new Chess()}, [movePair]);
+
+		var broadcasts = [];
+		var moveCommands = [];
+
+		// Extend/overwrite original methods
+
+		movePair.checkMoveLegality = function(move, globalState, player, actions) {
+			var chess = globalState.game;
+			if (chess.move(move)) {
+				chess.undo();
+				return true;
+			}
+			return false;
+		}
+
+		movePair.handleIllegalMove = function(move, globalState, player, actions) {	
+			actions.retryTurn(); // Make player move again
+		} 
+
+		movePair.handleLegalMove = function(move, globalState, player, actions) {
+			globalState.game.move(move);
+			if (globalState.game.game_over()) {
+				actions.endGame();
+			}
+			return true;
+		}
+
+		movePair.handleTimeout = function(globalState, player, actions) {
+			actions.endGame();
+
+		}
+
+		movePair.broadcastNewWorld = function(globalState) {
+			broadcasts.push(globalState.game.fen());
+			return globalState.game.fen();
+		}
+
+		movePair.remainingPlayersAmountChanged = function(globalState, players, actions) {
+			console.log("-.-- remainingPlayersAmountChanged")
+			if (players.length <= 1) actions.endGame();
+		}
+
+		it('Should play a game to mate', function(done) {
+
+			chessGame.register(whiteUser)
+			.then(function() {
+				chessGame.register(blackUser);
+			})
+			.then(function() {
+				// Extends after-hand the Player objects of Users
+				var whitePlayer = whiteUser.player;
+				var blackPlayer = blackUser.player;
+
+				whitePlayer.move = function() {
+					console.log("---- WHITE MOVE---");
+					moveCommands.push('white');
+					var moveObj = whiteMoveList.shift();
+					return Promise.delay(moveObj.time).return(moveObj.move);
+				}
+				blackPlayer.move = function() {
+					console.log("--- BLACK MOVE----")
+					moveCommands.push('black');
+					var moveObj = blackMoveList.shift();
+					return Promise.delay(moveObj.time).return(moveObj.move);
+				}
+
+				return true;
+			})
+			.then(function() {
+				return chessGame.start();
+			})
+			.then(function() {
+				console.log("CHECK EXPECT");
+				console.log(JSON.stringify(broadcasts))
+				expect(moveCommands).to.deep.equal([
+					'white',
+					'black', 
+					'white', // Illegal, retry
+					'white',
+					'black',
+					'white' // Mate
+				]);
+				// Should be 1. e4 Na6 2. d4 Rb8 3. Nf3 Nh6
+				expect(broadcasts).to.deep.equal([
+					"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+					"rnbqkbnr/ppppp1pp/5p2/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
+					"rnbqkbnr/ppppp1pp/5p2/8/3PP3/8/PPP2PPP/RNBQKBNR b KQkq d3 0 2",
+					"rnbqkbnr/ppppp2p/5p2/6p1/3PP3/8/PPP2PPP/RNBQKBNR w KQkq g6 0 3",
+					"rnbqkbnr/ppppp2p/5p2/6pQ/3PP3/8/PPP2PPP/RNB1KBNR b KQkq - 1 3"
+					])
 				done();
 			})
 		});

@@ -111,6 +111,10 @@ MoveRound.prototype.__loopRound = function(players) {
 		actions.endMoveRound();
 	}.bind(this))
 	.catch(EndMoveRound, function() {
+		this.__broadcast({
+			topic: 'new_world',
+			world: this.broadcastNewWorld(this.__globalStatePointer)
+		});
 		return this.__destroy(this.__globalStatePointer);
 	}.bind(this));
 
@@ -155,6 +159,7 @@ MoveRound.prototype.__oneMove = function(player, timeleft, retryCount) {
 		} 
 		else if (isLegal === true) {
 			handleRes = this.handleLegalMove(move, this.__globalStatePointer, player, actions)
+
 		}
 		else {
 			throw new ExtendError("Move legality did not return TRUE/FALSE: " + isLegal);	
@@ -164,7 +169,7 @@ MoveRound.prototype.__oneMove = function(player, timeleft, retryCount) {
 			this.__broadcast({
 				topic: 'new_world',
 				world: this.broadcastNewWorld(this.__globalStatePointer)
-			});
+			});			
 			return player; // Allows to participate to next round
 		}
 		return null; // Removes player from next round
@@ -182,6 +187,14 @@ MoveRound.prototype.__oneMove = function(player, timeleft, retryCount) {
 	.catch(RetryTurn, function() {
 		////console.log("Retrying player turn");
 		return this.__oneMove(player, timeleft, retryCount+1);
+	}.bind(this))
+	.catch(EndGame, function(err) {
+		// Broadcast first, then rethrow
+		this.__broadcast({
+			topic: 'new_world',
+			world: this.broadcastNewWorld(this.__globalStatePointer)
+		});
+		throw err;
 	}.bind(this))	
 }
 
