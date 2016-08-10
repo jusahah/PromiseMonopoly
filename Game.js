@@ -85,7 +85,7 @@ module.exports = function Game(id, settings) {
 	* @param {Player} - The player object that disconnects.
 	* @returns undefined
 	*/	
-	this.playerDisconnecting = function(player) {
+	this.playerDisconnected = function(player) {
 		// Note that Player must have set her hasDisconnected = true by now!
 		// That way actual disconnecting is handled in GameInProgress state!
 		// Here we simply broadcast notification
