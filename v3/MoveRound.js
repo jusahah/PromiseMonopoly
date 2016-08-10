@@ -220,7 +220,7 @@ MoveRound.prototype.handleTimeout = function(globalState, player, actions) {
 
 MoveRound.prototype.checkMoveLegality = function(move, globalState, player, actions) {
 	recursiveLog.log2('Hook: checkMoveLegality');
-	return Math.random() < 0.9995;
+	return Math.random() < 1;
 	return true;
 }
 
