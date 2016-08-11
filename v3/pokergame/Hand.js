@@ -12,7 +12,7 @@ var CARDS = [
 
 function Hand(initialWorld, phases) {
 
-	Phase.call(this, initialWorld, phases);
+	Phase.call(this, 'Hand', initialWorld, phases);
 
 	this.onEnter = function(globalState, players) {
 		console.log("Hand on enter");

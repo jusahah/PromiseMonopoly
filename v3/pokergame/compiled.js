@@ -41140,7 +41140,7 @@ var CARDS = [
 
 function Hand(initialWorld, phases) {
 
-	Phase.call(this, initialWorld, phases);
+	Phase.call(this, 'Hand', initialWorld, phases);
 
 	this.onEnter = function(globalState, players) {
 		console.log("Hand on enter");
@@ -41463,15 +41463,15 @@ Promise.try(function() {
 })
 .then(function(users) {
 
-	var singleHand = new Hand('hand', {loop: false}, [
-		new Preflop('preflop', {loop: false}, []),
-		new BettingRound('betting', {loop: true}),
-		new Flop('flop', {loop: false}, []),
-		new BettingRound('betting', {loop: true}),
-		new Turn('turn', {loop: false}, []),
-		new BettingRound('betting', {loop: true}),
-		new River('river', {loop: false}, []),
-		new BettingRound('betting', {loop: true}),
+	var singleHand = new Hand({loop: false}, [
+		new Preflop({loop: false}, []),
+		new BettingRound({loop: true}),
+		new Flop({loop: false}, []),
+		new BettingRound({loop: true}),
+		new Turn({loop: false}, []),
+		new BettingRound({loop: true}),
+		new River({loop: false}, []),
+		new BettingRound({loop: true}),
 	]);
 
 	var sitAndGo = new SitAndGo({
