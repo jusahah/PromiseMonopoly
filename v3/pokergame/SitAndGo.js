@@ -1,7 +1,7 @@
 var Promise = require('bluebird');
 var _ = require('lodash');
 
-var Game = require('../Game');
+var Game = require('./protos/Game');
 
 function SitAndGo(initialWorld, phases) {
 

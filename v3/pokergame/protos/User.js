@@ -1,3 +1,5 @@
+var Promise = require('bluebird');
+var _ = require('lodash');
 var chalk = require('chalk');
 
 function User(id, msgForward) {

@@ -74,6 +74,7 @@ var msgAcceptorFor = function(playerLetter) {
 	var wonBg = '#FFD700';
 	var drawBg = '#dddddd';
 
+	var playerID = 'p' + playerLetter;
 	var el = jquery('#p' + playerLetter);
 
 	var timerHandle = null;
@@ -123,6 +124,26 @@ var msgAcceptorFor = function(playerLetter) {
 			}
 			lostGame = true;
 			el.css('background-color', lostBg);
+		} else if (msg.topic === 'new_world') {
+			console.warn("New world");
+			console.log(msg.world.betsOnTable);
+		} else if (msg.topic === 'player_tomove') {
+			if (msg.playerID === playerID) {
+				var timerEl = el.find('.timer');
+				timerEl.empty().append(msg.timetomove);
+				el.css('background-color', 'green');
+				if (timerHandle) {
+					clearInterval(timerHandle);
+					timerHandle = null;
+				}
+				timerHandle = loopTimer(timerEl, msg.timetomove);				
+			} else {
+				if (timerHandle) {
+					clearInterval(timerHandle);
+					timerHandle = null;
+				}
+				el.css('background-color', 'pink');				
+			}
 		}
 		
 	}
@@ -153,11 +174,11 @@ function createTestUsers(num) {
 	var area = jquery('#testingarea');
 	return _.times(num, function(nth) {
 		var playerUI = playerTemplate({
-			playerLetter: nth
+			playerLetter: nth+1
 		});
 		area.append(playerUI);
-		var p = new User('p'+nth, msgAcceptorFor(nth));
-		setupInputListeners(area.find('#p' + nth), p);
+		var p = new User('p'+(nth+1), msgAcceptorFor(nth+1));
+		setupInputListeners(area.find('#p' + (nth+1)), p);
 		return p;
 
 	})
@@ -174,22 +195,27 @@ function setupInputListeners(playerUI, user) {
 
 		if ($e.attr('data-action') === 'bet') {
 			return user.receiveMoveFromFrontend({
-				move: 'e4' // Legal move
+				move: 'bet' // Legal move
 			});
 		}
 
 		if ($e.attr('data-action') === 'check') {
 			return user.receiveMoveFromFrontend({
-				move: 'e5' // Legal move but loses game
+				move: 'check' // Legal move but loses game
 			});
 		}
 
 		if ($e.attr('data-action') === 'fold') {
 			return user.receiveMoveFromFrontend({
-				move: 'x8' // Illegal move
+				move: 'fold' // Illegal move
 			});			
 		}
 
+		if ($e.attr('data-action') === 'call') {
+			return user.receiveMoveFromFrontend({
+				move: 'call' // Illegal move
+			});			
+		}
 		if ($e.attr('data-action') === 'disconnect') {
 			return user.disconnect();			
 		}

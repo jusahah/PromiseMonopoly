@@ -303,7 +303,7 @@ function amdefine(module, requireFn) {
 module.exports = amdefine;
 
 }).call(this,require('_process'),"/../../node_modules/amdefine/amdefine.js")
-},{"_process":77,"path":76}],2:[function(require,module,exports){
+},{"_process":76,"path":75}],2:[function(require,module,exports){
 'use strict';
 module.exports = function () {
 	return /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
@@ -5855,7 +5855,7 @@ module.exports = ret;
 },{"./es5":13}]},{},[4])(4)
 });                    ;if (typeof window !== 'undefined' && window !== null) {                               window.P = window.Promise;                                                     } else if (typeof self !== 'undefined' && self !== null) {                             self.P = self.Promise;                                                         }
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"_process":77}],5:[function(require,module,exports){
+},{"_process":76}],5:[function(require,module,exports){
 (function (process){
 'use strict';
 var escapeStringRegexp = require('escape-string-regexp');
@@ -5975,7 +5975,7 @@ module.exports.stripColor = stripAnsi;
 module.exports.supportsColor = supportsColor;
 
 }).call(this,require('_process'))
-},{"_process":77,"ansi-styles":3,"escape-string-regexp":6,"has-ansi":37,"strip-ansi":51,"supports-color":52}],6:[function(require,module,exports){
+},{"_process":76,"ansi-styles":3,"escape-string-regexp":6,"has-ansi":37,"strip-ansi":51,"supports-color":52}],6:[function(require,module,exports){
 'use strict';
 
 var matchOperatorsRe = /[|\\{}()[\]^$+*?.]/g;
@@ -10655,7 +10655,7 @@ if (typeof require !== 'undefined' && require.extensions) {
   require.extensions['.hbs'] = extension;
 }
 
-},{"../dist/cjs/handlebars":7,"../dist/cjs/handlebars/compiler/printer":17,"fs":74}],37:[function(require,module,exports){
+},{"../dist/cjs/handlebars":7,"../dist/cjs/handlebars/compiler/printer":17,"fs":73}],37:[function(require,module,exports){
 'use strict';
 var ansiRegex = require('ansi-regex');
 var re = new RegExp(ansiRegex().source); // remove the `g` flag
@@ -40349,456 +40349,7 @@ module.exports = (function () {
 })();
 
 }).call(this,require('_process'))
-},{"_process":77}],53:[function(require,module,exports){
-var Promise = require('bluebird');
-var _ = require('lodash');
-var recursiveLog = require('./recursiveLog');
-// Domain objs
-var Player = require('./Player');
-
-// Actions
-var EndGame = require('./actions/EndGame');
-
-// RegistrationActions
-var RegistrationPrevent = require('./actions/RegistrationPrevent');
-var RegisterAndStartGameAction = require('./actions/RegisterAndStartGameAction');
-
-function Game(initialWorld, phases) {
-
-	this.id = 'abc_' + Math.floor(Math.random() * 100000000);
-	this.__world = initialWorld;
-	this.__players = [];
-	this.__phases = phases;
-
-	// We should later abstract these into State pattern or smth
-	this.__registrationClosed = false;
-	this.__gameEnded = false;
-
-	this.start = function() {
-		recursiveLog.log('START: Game');
-
-		// Run through separate initialization function
-		//this.__world = this.initializeLocalWorld(this.__world, this.__players);
-
-		return Promise.each(this.__phases, function(phase) {
-			phase.__initialize(this.__world, this.__players);
-			return phase.__start().tap(function() {
-				
-			})
-		}.bind(this)).tap(function() {
-
-			this.__endGame();
-		}.bind(this)).catch(EndGame, function() {
-
-			this.__endGame();
-		}.bind(this))
-	}
-
-	this.__endGame = function() {
-		recursiveLog.log('STOP: Game');
-		this.__gameEnded = true;
-		this.broadcast({
-			topic: 'game_ended',
-		});
-
-	}
-
-	this.__playerDisconnected = function(player) {
-		this.broadcast({
-			topic: 'player_disconnected',
-			msg: player.getID()
-		})
-	}
-
-	this.__registerUser = function(user) {
-
-		// Does all the linking between User, Player and Game
-		var player;
-		if (user instanceof Player) {
-			player = user;
-		} else {
-			player = new Player(user);
-		}
-
-		this.__players.push(player);
-		player.__setGame(this);
-		this.broadcast({
-			topic: 'player_registered',
-			msg: player.getID()
-		});
-	}
-
-	this.register = function(userPolym) {
-		// Call game beforeRegistration extended method
-		// Provide extended method a way to abort registration through raising an exception 
-		var user;
-		if (userPolym instanceof Player) {
-			user = userPolym.user
-		} else {
-			user = userPolym;
-		}
-
-		return Promise.try(function() {
-
-			if (this.__registrationClosed) {
-				// Already closed
-				throw new RegistrationPrevent();
-			}
-			// This must be before game's beforeRegistration hook!
-			user.beforeRegistration(function() {
-				throw new RegistrationPrevent();
-			});
-
-			this.beforeRegistration(
-				user, 
-				_.slice(this.__players), 
-				/* We pass in actions the hook can trigger! */
-				function() {
-					throw new RegistrationPrevent();
-				},
-				function() {
-					this.__registrationClosed = true;
-					throw new RegisterAndStartGameAction();
-				}.bind(this)
-			);
-
-			// If neither raised an exception, add the player in!
-			this.__registerUser(userPolym);
-			return true;
-		}.bind(this))
-		.catch(RegistrationPrevent, function(err) {
-
-			user.msg({
-				topic: 'registration_prevent',
-				gameID: this.id
-			})
-			return null;
-		}.bind(this))
-		.catch(RegisterAndStartGameAction, function() {
-
-			this.__registerUser(userPolym);
-			this.start();
-			return true;
-		}.bind(this));
-		
-		// Call User's beforeRegistration hook
-		// Provide User way to abort registration through raising an exception 
-		
-		
-	}
-
-	this.broadcast = function(msg) {
-		_.map(this.__players, function(player) {
-			player.msg(msg);
-		}.bind(this))
-	}
-
-	this.__getID = function() {
-		return this.id;
-	}
-
-	this.initializeLocalWorld = function(world, _players) {
-		return world;
-	}
-
-	this.onPlayerDisconnect = function(world, players, actions) {
-		return true;
-	}
-
- 	this.beforeRegistration = function(
-		user, 
-		players, 
-		registrationPreventAction, 
-		registerAndStartGameAction
-	) {
-		recursiveLog.log2('Hook: beforeRegistration');
-		return true;
-	
-	}
-}
-
-module.exports = Game;
-},{"./Player":56,"./actions/EndGame":57,"./actions/RegisterAndStartGameAction":59,"./actions/RegistrationPrevent":60,"./recursiveLog":73,"bluebird":4,"lodash":39}],54:[function(require,module,exports){
-var Promise = require('bluebird');
-var _ = require('lodash');
-
-var recursiveLog = require('./recursiveLog');
-
-// Action exceptions
-var RetryTurn = require('./actions/RetryTurn');
-var EndGame = require('./actions/EndGame');
-var EndMoveRound = require('./actions/EndMoveRound');
-
-// Errors
-var ExtendError = require('./errors/ExtendError');
-
-var actions = {
-	retryTurn: function() {
-		throw new RetryTurn();
-	},
-	endGame: function() {
-		throw new EndGame();
-	},
-	endMoveRound: function() {
-		throw new EndMoveRound;
-	}
-}
-
-/**
-* Conventions:
-
-* Functions starting 'this.__' are defined in parent (MoveRound). They are not meant
-* to be extended by client-code.
-*
-* Other functions are defined in child classes. They are meant to be extended by client-code.
-*/
-
-/* Extending classes must provide at least following methods:
-*
-* 'initializeLocalWorld(parentWorld, players)'
-* 'checkMoveLegality(move, localWorld, player, actions)'
-* 'handleIllegalMove(move, localWorld, player, actions)'
-* 'handleLegalMove(move, localWorld, player, actions)'
-*/
-
-function MoveRound(settings) {
-	this.__phaseName = 'MoveRound';
-	/** Type of this object */
-	this.__promisemonopolytype = 'MoveRound';
-	/** Players who started this MoveRound */
-	this.__participatingPlayers;
-	/** Save settings object */
-	this.__settings = settings;
-	/** Keeps track of global state during moveRound */
-	this.__globalStatePointer
-
-};
-
-MoveRound.prototype.__initialize = function(globalState, players) {
-
-	//console.log("INIT: " + this.__phaseName);
-
-	// Create local state object that goes around while
-	// this MoveRound exists!
-
-	// Any return value from here will be passed to this.start!
-
-	// Save copy of players so we know who are participating to this MoveRound
-	this.__participatingPlayers = _.slice(players);
-
-	// Call user-defined initializing of localWorld
-	this.onEnter(globalState, _.slice(players));
-	this.__globalStatePointer = globalState;
-	return true;
-
-}
-/**
-* Starts a moveRound and plays it through
-* @param localWorld - Local state of this MoveRound object
-* @returns Promise - Promise to be fulfilled when moveRound is over
-*/
-MoveRound.prototype.__start = function() {
-	recursiveLog.push();
-	recursiveLog.log('START: MoveRound');
-	return this.__loopRound(this.__participatingPlayers);
-
-}
-
-MoveRound.prototype.__loopRound = function(players) {
-
-	console.log("-----LOOP ROUND: " + players.length);
-
-	var playersStartingCount = players.length;
-	this.beforeLoopRound(this.__globalStatePointer, players);
-	return this.__oneRound(players)
-	// Filter away players who did not survive the round
-	.then(_.compact)
-	.tap(function(remainingPlayers) {
-		this.afterLoopRound(this.__globalStatePointer, remainingPlayers);
-	}.bind(this))
-	.then(function(remainingPlayers) {
-		//console.log("Remainingp players len: " + remainingPlayers.length);
-		
-		if (remainingPlayers.length !== playersStartingCount) {
-			this.remainingPlayersAmountChanged(this.__globalStatePointer, remainingPlayers, actions);
-		}
-
-		if (this.__settings.loop && remainingPlayers.length > 0) {
-			return this.__loopRound(remainingPlayers, this.__globalStatePointer);
-		}
-
-
-		// MoveRound is over
-		actions.endMoveRound();
-	}.bind(this))
-	.catch(EndMoveRound, function() {
-		this.__broadcast({
-			topic: 'new_world',
-			world: this.broadcastNewWorld(this.__globalStatePointer)
-		});
-		return this.__destroy(this.__globalStatePointer);
-	}.bind(this));
-
-}
-
-MoveRound.prototype.__oneRound = function(players) {
-	recursiveLog.log('START: Individual round of moves');
-	return Promise.mapSeries(players, function(player) {
-		if (player.hasDisconnected()) return null;
-		return this.__oneMove(player, 160);
-	}.bind(this));
-
-}
-
-MoveRound.prototype.__oneMove = function(player, timeleft, retryCount) {
-	recursiveLog.log('-Request: Individual move for: ' + player.getID());
-	retryCount = retryCount || 0;
-	this.__broadcast({
-		topic: 'player_tomove',
-		playerID: player.getID(),
-		retryCount: retryCount
-	});
-
-	var dataForMove = this.beforeMove(this.__globalStatePointer, retryCount);
-	// Tell player to make a move and start waiting for the move
-	return player.move(dataForMove).timeout(timeleft)
-	// Returns [true, move] if legal, otherwise [false, move];
-	.then(function(move) {
-		return this.afterMove(move, this.__globalStatePointer, retryCount);
-	}.bind(this))
-	.then(function(move) {
-		var isLegal = this.checkMoveLegality(move, this.__globalStatePointer, player, actions);
-		return [isLegal, move];
-	}.bind(this))
-	// Handle legal and illegal moves
-	// Illegal: You probably want to just retry turn or remove player 
-	// Legal: You probably want to mutate localWorld based on move
-	.spread(function(isLegal, move) {
-		var handleRes;
-		if (isLegal === false) {
-			handleRes = this.handleIllegalMove(move, this.__globalStatePointer, player, actions)
-		} 
-		else if (isLegal === true) {
-			handleRes = this.handleLegalMove(move, this.__globalStatePointer, player, actions)
-
-		}
-		else {
-			throw new ExtendError("Move legality did not return TRUE/FALSE: " + isLegal);	
-		}
-
-		if (handleRes === true) {
-			this.__broadcast({
-				topic: 'new_world',
-				world: this.broadcastNewWorld(this.__globalStatePointer)
-			});			
-			return player; // Allows to participate to next round
-		}
-		return null; // Removes player from next round
-	}.bind(this))
-	.catch(Promise.TimeoutError, function() {
-		//console.log("Player timed out");
-		this.__broadcast({
-			topic: 'player_timeout',
-			playerID: player.getID()
-		});
-		// Note!
-		// You can also return from catch and thus continue Promise chain!!
-		return this.handleTimeout(this.__globalStatePointer, player, actions);
-	}.bind(this))
-	.catch(RetryTurn, function() {
-		////console.log("Retrying player turn");
-		return this.__oneMove(player, timeleft, retryCount+1);
-	}.bind(this))
-	// We practically need to catch and rethrow all terminal exceptions so that we
-	// can in between catch and rethrow broadcast new state one last time.
-	.catch(function(err) {
-		// Broadcast first, then rethrow
-		this.__broadcast({
-			topic: 'new_world',
-			world: this.broadcastNewWorld(this.__globalStatePointer)
-		});
-		throw err;
-	}.bind(this))	
-}
-
-MoveRound.prototype.__broadcast = function(msg) {
-
-	_.map(this.__participatingPlayers, function(player) {
-		player.msg(msg);
-	})
-
-}
-
-MoveRound.prototype.beforeLoopRound = function(globalState, players) {
-	recursiveLog.log2('Hook: beforeLoopRound');
-}
-
-MoveRound.prototype.afterLoopRound = function(globalState, players) {
-	recursiveLog.log2('Hook: afterLoopRound');
-}
-
-MoveRound.prototype.onEnter = function(globalState, players) {
-	globalState.moverounds++;
-}
-
-
-MoveRound.prototype.onExit = function(globalState) {
-	return true;
-}
-
-MoveRound.prototype.__destroy = function(globalState) {
-	recursiveLog.log('STOP: MoveRound');
-	recursiveLog.pop();
-	this.onExit(this.__globalStatePointer);
-	//console.log("DESTROY: " + this.__phaseName);
-	return globalState;
-}
-
-MoveRound.prototype.beforeMove = function(globalState) {
-	recursiveLog.log2('Hook: beforeMove');
-	return true;
-}
-
-MoveRound.prototype.afterMove = function(move, globalState, retryCount) {
-	recursiveLog.log2('Hook: afterMove');
-	return move;
-}
-
-MoveRound.prototype.handleTimeout = function(globalState, player, actions) {
-	recursiveLog.log2('Hook: handleTimeout');
-	return false;
-}
-
-MoveRound.prototype.checkMoveLegality = function(move, globalState, player, actions) {
-	recursiveLog.log2('Hook: checkMoveLegality');
-	return Math.random() < 1;
-	return true;
-}
-
-MoveRound.prototype.handleIllegalMove = function(move, globalState, player, actions) {	
-	recursiveLog.log2('Hook: handleIllegalMove');
-	actions.retryTurn(); // Make player move again
-} 
-
-MoveRound.prototype.handleLegalMove = function(move, globalState, player, actions) {
-	recursiveLog.log2('Hook: handleLegalMove');
-	return true;
-}
-
-MoveRound.prototype.remainingPlayersAmountChanged = function(globalState, players, actions) {
-	recursiveLog.log2('Hook: remainingPlayersAmountChanged');
-	return true;
-}
-MoveRound.prototype.broadcastNewWorld = function(globalState) {
-	recursiveLog.log2('Hook: broadcastNewWorld');
-	return globalState;
-}
-
-
-module.exports = MoveRound;
-
-
-},{"./actions/EndGame":57,"./actions/EndMoveRound":58,"./actions/RetryTurn":61,"./errors/ExtendError":62,"./recursiveLog":73,"bluebird":4,"lodash":39}],55:[function(require,module,exports){
+},{"_process":76}],53:[function(require,module,exports){
 var Promise = require('bluebird');
 var _ = require('lodash');
 
@@ -40966,73 +40517,7 @@ MoveRound = {
 */
 
 
-},{"./actions/EndGame":57,"./actions/EndMoveRound":58,"./actions/RetryTurn":61,"./recursiveLog":73,"bluebird":4,"lodash":39}],56:[function(require,module,exports){
-var Promise = require('bluebird');
-var _ = require('lodash');
-
-var fixedTime = 1000;
-var variableTime = 200;
-
-function Player(user) {
-
-	this.user = user;
-	/** Set link from User to this Player obj */
-	this.user.setPlayer(this);
-
-	this.game = null;
-
-	this.__hasDisconnected = false;
-
-	this.move = function(moveInfo) {
-		// From here we route to User with gameID attached!
-		if (this.user && this.game) {
-			this.user.msg({
-				topic: 'yourMove',
-				gameID: this.game.__getID(),
-			});
-		}
-		//this.msg({topic: 'yourMove'});
-		return Promise.delay(fixedTime + Math.random() * variableTime).then(function() {
-			// Get random move out of moveInfo which contains array of legal moves
-			var randomMove = _.sample(moveInfo);
-			//console.log("Random move: " + randomMove);
-			return randomMove;
-		})		
-	}
-
-	this.__setGame = function(game) {
-		this.game = game;
-	}
-
-	this.disconnect = function() {
-		this.__hasDisconnected = true;
-		console.log("Player disconnect: " + this.__hasDisconnected);
-		if (this.game) this.game.__playerDisconnected(this);
-	}
-
-	this.hasDisconnected = function() {
-		//console.log("hasDisconnected? " + this.getID() + ": " + this.__hasDisconnected);
-		return this.__hasDisconnected;
-	}
-
-	this.msg = function(msg) {
-		// From here we route to User with gameID attached!
-		if (this.user) {
-			// Decorate with game id
-			if (this.game) msg.gameID = this.game.__getID();
-			this.user.msg(msg);
-		}		
-
-	}
-
-	this.getID = function() {
-		return this.user.id;
-	}
-
-}
-
-module.exports = Player;
-},{"bluebird":4,"lodash":39}],57:[function(require,module,exports){
+},{"./actions/EndGame":54,"./actions/EndMoveRound":55,"./actions/RetryTurn":58,"./recursiveLog":72,"bluebird":4,"lodash":39}],54:[function(require,module,exports){
 module.exports = function EndGame(message, extra) {
   Error.captureStackTrace(this, this.constructor);
   this.name = this.constructor.name;
@@ -41041,7 +40526,7 @@ module.exports = function EndGame(message, extra) {
 };
 
 require('util').inherits(module.exports, Error);
-},{"util":79}],58:[function(require,module,exports){
+},{"util":78}],55:[function(require,module,exports){
 module.exports = function EndMoveRound(message, extra) {
   Error.captureStackTrace(this, this.constructor);
   this.name = this.constructor.name;
@@ -41050,7 +40535,7 @@ module.exports = function EndMoveRound(message, extra) {
 };
 
 require('util').inherits(module.exports, Error);
-},{"util":79}],59:[function(require,module,exports){
+},{"util":78}],56:[function(require,module,exports){
 module.exports = function RegisterAndStartGameAction(message, extra) {
   Error.captureStackTrace(this, this.constructor);
   this.name = this.constructor.name;
@@ -41059,7 +40544,7 @@ module.exports = function RegisterAndStartGameAction(message, extra) {
 };
 
 require('util').inherits(module.exports, Error);
-},{"util":79}],60:[function(require,module,exports){
+},{"util":78}],57:[function(require,module,exports){
 module.exports = function RegistrationPrevent(message, extra) {
   Error.captureStackTrace(this, this.constructor);
   this.name = this.constructor.name;
@@ -41068,7 +40553,7 @@ module.exports = function RegistrationPrevent(message, extra) {
 };
 
 require('util').inherits(module.exports, Error);
-},{"util":79}],61:[function(require,module,exports){
+},{"util":78}],58:[function(require,module,exports){
 module.exports = function RetryTurn(message, extra) {
   Error.captureStackTrace(this, this.constructor);
   this.name = this.constructor.name;
@@ -41077,7 +40562,7 @@ module.exports = function RetryTurn(message, extra) {
 };
 
 require('util').inherits(module.exports, Error);
-},{"util":79}],62:[function(require,module,exports){
+},{"util":78}],59:[function(require,module,exports){
 module.exports = function ExtendError(message, extra) {
   Error.captureStackTrace(this, this.constructor);
   this.name = this.constructor.name;
@@ -41086,15 +40571,131 @@ module.exports = function ExtendError(message, extra) {
 };
 
 require('util').inherits(module.exports, Error);
-},{"util":79}],63:[function(require,module,exports){
+},{"util":78}],60:[function(require,module,exports){
 var Promise = require('bluebird');
 var _ = require('lodash');
 
-var MoveRound = require('../MoveRound');
+var MoveRound = require('./protos/MoveRound');
 
 function BettingRound(settings, phases) {
 
 	MoveRound.call(this, 'BettingRound', settings, phases);
+
+	this.onEnter = function(globalState, players) {
+		console.warn("BettingRound enter");
+
+	}
+
+	this.onExit = function(globalState) {
+		var tableBets = globalState.currentHand.betsOnTable;
+
+		// Gather bets
+		var totalBetSum = _.chain(tableBets)
+		.values()
+		.reduce(function(sum, bet) {
+			return sum + bet;
+		}, 0)
+		.value();
+
+		// Add collected bets to current pot
+		globalState.currentHand.pot += totalBetSum;
+
+		// Reset bets on table
+		globalState.currentHand.betsOnTable = _.mapValues(tableBets, function() {
+			return 0;
+		});
+	}
+
+	this.checkMoveLegality = function(moveObj, globalState, player, actions) {
+		console.log("Move legality checkup: " + moveObj.move);
+		var playerID = player.getID();
+		var move = moveObj.move;
+		if (move === 'fold') return true;
+		if (move === 'check') {
+			if (this.findCallAmount(globalState.currentHand.betsOnTable, playerID) < 0.001) {
+				return true;
+			}
+			return false;
+		}
+
+		if (move === 'bet') return true;
+		if (move === 'call') {
+			if (this.findCallAmount(globalState.currentHand.betsOnTable, playerID) < 0.001) {
+				return false; // Nothing to call
+			}
+			return true;			
+		}
+
+	}
+
+	this.handleLegalMove = function(moveObj, globalState, player, actions) {
+		var move = moveObj.move;
+		console.log("Handling legal move: " + move);
+		var playerID = player.getID();
+		if (move === 'fold') {
+			var holeCards = globalState.currentHand.holeCards;
+			
+			// Muck the player hole cards, indicating he is out of the hand
+			_.unset(globalState.currentHand.holeCards, playerID);
+			return false; // Drop the player from this hand
+		}
+		if (move === 'check') return true;
+		if (move === 'bet') {
+			var bet = 50;
+			globalState.chips[playerID] -= bet;
+			globalState.currentHand.betsOnTable[playerID] += bet;
+			return true;
+		}
+		if (move === 'call') {
+			var call = this.findCallAmount(globalState.currentHand.betsOnTable, playerID);
+			globalState.chips[playerID] -= call;
+			globalState.currentHand.betsOnTable[playerID] += call;
+			return true;
+		}
+		throw new Error("Unknown move in handleLegalMove: " + move);
+		
+
+	} 
+
+	this.handleIllegalMove = function(move, globalState, player, actions) {
+		return actions.retryTurn();
+	}
+
+	this.findCallAmount = function(betsOnTable, playerID) {
+		var myBets = betsOnTable[playerID];
+
+		var highestBets = _.chain(betsOnTable)
+		.toPairs()
+		.sortBy(function(playerBetsArr) {
+			return playerBetsArr[1];
+		})
+		.head()
+		.value();
+		console.log("Find call amount through-------")
+		return highestBets - myBets;
+
+	}
+
+	this.broadcastNewWorld = function(globalState) {
+
+		console.warn("---- STATE -------");
+		console.log(JSON.stringify(globalState));
+		console.warn("------------------");
+		return globalState.currentHand;
+
+	}
+
+	this.afterMove = function(globalState, retryCount, actions) {
+		// Check if there is any point of going on
+		var holeCards = globalState.currentHand.holeCards;
+
+		if (_.keys(holeCards).length === 1) {
+			console.warn("END MOVE ROUND");
+			//return actions.endMoveRound();
+		}
+
+
+	}
 
 
 
@@ -41106,7 +40707,7 @@ BettingRound.prototype = Object.create(MoveRound.prototype);
 
 
 module.exports = BettingRound;
-},{"../MoveRound":54,"bluebird":4,"lodash":39}],64:[function(require,module,exports){
+},{"./protos/MoveRound":69,"bluebird":4,"lodash":39}],61:[function(require,module,exports){
 var Promise = require('bluebird');
 var _ = require('lodash');
 
@@ -41125,7 +40726,7 @@ Flop.prototype = Object.create(Phase.prototype);
 
 
 module.exports = Flop;
-},{"../Phase":55,"bluebird":4,"lodash":39}],65:[function(require,module,exports){
+},{"../Phase":53,"bluebird":4,"lodash":39}],62:[function(require,module,exports){
 var Promise = require('bluebird');
 var _ = require('lodash');
 
@@ -41150,15 +40751,11 @@ function Hand(initialWorld, phases) {
 		var playersByID = _.keyBy(players, function(player) {
 			return player.getID();
 		});
-
-		var playersState = _.mapValues(playersByID, function(player) {
-			return {chips: world.chips, hand: _.sampleSize(cardsInPlay, 2)}
+		
+		// Deal two cards to each player
+		_.mapValues(playersByID, function(player) {
+			globalState.currentHand.holeCards[player.getID()] = _.sampleSize(cardsInPlay, 2)
 		});
-
-		var tableState = {
-			deck: cardsInPlay,
-			boardCards: [],
-		}
 
 	}
 
@@ -41174,7 +40771,7 @@ Hand.prototype = Object.create(Phase.prototype);
 
 
 module.exports = Hand;
-},{"../Phase":55,"bluebird":4,"lodash":39}],66:[function(require,module,exports){
+},{"../Phase":53,"bluebird":4,"lodash":39}],63:[function(require,module,exports){
 var Promise = require('bluebird');
 var _ = require('lodash');
 
@@ -41194,7 +40791,7 @@ Preflop.prototype = Object.create(Phase.prototype);
 
 
 module.exports = Preflop;
-},{"../Phase":55,"bluebird":4,"lodash":39}],67:[function(require,module,exports){
+},{"../Phase":53,"bluebird":4,"lodash":39}],64:[function(require,module,exports){
 var Promise = require('bluebird');
 var _ = require('lodash');
 
@@ -41213,11 +40810,11 @@ River.prototype = Object.create(Phase.prototype);
 
 
 module.exports = River;
-},{"../Phase":55,"bluebird":4,"lodash":39}],68:[function(require,module,exports){
+},{"../Phase":53,"bluebird":4,"lodash":39}],65:[function(require,module,exports){
 var Promise = require('bluebird');
 var _ = require('lodash');
 
-var Game = require('../Game');
+var Game = require('./protos/Game');
 
 function SitAndGo(initialWorld, phases) {
 
@@ -41241,7 +40838,7 @@ SitAndGo.prototype = Object.create(Game.prototype);
 
 
 module.exports = SitAndGo;
-},{"../Game":53,"bluebird":4,"lodash":39}],69:[function(require,module,exports){
+},{"./protos/Game":68,"bluebird":4,"lodash":39}],66:[function(require,module,exports){
 var Promise = require('bluebird');
 var _ = require('lodash');
 
@@ -41258,7 +40855,7 @@ Turn.prototype = Object.create(Phase.prototype);
 
 
 module.exports = Turn;
-},{"../Phase":55,"bluebird":4,"lodash":39}],70:[function(require,module,exports){
+},{"../Phase":53,"bluebird":4,"lodash":39}],67:[function(require,module,exports){
 var Promise = require('bluebird');
 var _ = require('lodash');
 var jquery = require('jquery');
@@ -41335,6 +40932,7 @@ var msgAcceptorFor = function(playerLetter) {
 	var wonBg = '#FFD700';
 	var drawBg = '#dddddd';
 
+	var playerID = 'p' + playerLetter;
 	var el = jquery('#p' + playerLetter);
 
 	var timerHandle = null;
@@ -41384,6 +40982,26 @@ var msgAcceptorFor = function(playerLetter) {
 			}
 			lostGame = true;
 			el.css('background-color', lostBg);
+		} else if (msg.topic === 'new_world') {
+			console.warn("New world");
+			console.log(msg.world.betsOnTable);
+		} else if (msg.topic === 'player_tomove') {
+			if (msg.playerID === playerID) {
+				var timerEl = el.find('.timer');
+				timerEl.empty().append(msg.timetomove);
+				el.css('background-color', 'green');
+				if (timerHandle) {
+					clearInterval(timerHandle);
+					timerHandle = null;
+				}
+				timerHandle = loopTimer(timerEl, msg.timetomove);				
+			} else {
+				if (timerHandle) {
+					clearInterval(timerHandle);
+					timerHandle = null;
+				}
+				el.css('background-color', 'pink');				
+			}
 		}
 		
 	}
@@ -41414,11 +41032,11 @@ function createTestUsers(num) {
 	var area = jquery('#testingarea');
 	return _.times(num, function(nth) {
 		var playerUI = playerTemplate({
-			playerLetter: nth
+			playerLetter: nth+1
 		});
 		area.append(playerUI);
-		var p = new User('p'+nth, msgAcceptorFor(nth));
-		setupInputListeners(area.find('#p' + nth), p);
+		var p = new User('p'+(nth+1), msgAcceptorFor(nth+1));
+		setupInputListeners(area.find('#p' + (nth+1)), p);
 		return p;
 
 	})
@@ -41435,22 +41053,27 @@ function setupInputListeners(playerUI, user) {
 
 		if ($e.attr('data-action') === 'bet') {
 			return user.receiveMoveFromFrontend({
-				move: 'e4' // Legal move
+				move: 'bet' // Legal move
 			});
 		}
 
 		if ($e.attr('data-action') === 'check') {
 			return user.receiveMoveFromFrontend({
-				move: 'e5' // Legal move but loses game
+				move: 'check' // Legal move but loses game
 			});
 		}
 
 		if ($e.attr('data-action') === 'fold') {
 			return user.receiveMoveFromFrontend({
-				move: 'x8' // Illegal move
+				move: 'fold' // Illegal move
 			});			
 		}
 
+		if ($e.attr('data-action') === 'call') {
+			return user.receiveMoveFromFrontend({
+				move: 'call' // Illegal move
+			});			
+		}
 		if ($e.attr('data-action') === 'disconnect') {
 			return user.disconnect();			
 		}
@@ -41516,11 +41139,461 @@ Promise.try(function() {
 	console.log("Calling start() of SitAndGo")
 	sitAndGo.start();
 });
-},{"./BettingRound":63,"./Flop":64,"./Hand":65,"./Preflop":66,"./River":67,"./SitAndGo":68,"./Turn":69,"./protos/Player":71,"./protos/User":72,"bluebird":4,"handlebars":36,"jquery":38,"lodash":39}],71:[function(require,module,exports){
+},{"./BettingRound":60,"./Flop":61,"./Hand":62,"./Preflop":63,"./River":64,"./SitAndGo":65,"./Turn":66,"./protos/Player":70,"./protos/User":71,"bluebird":4,"handlebars":36,"jquery":38,"lodash":39}],68:[function(require,module,exports){
+var Promise = require('bluebird');
+var _ = require('lodash');
+var recursiveLog = require('../../recursiveLog');
+// Domain objs
+var Player = require('./Player');
+
+// Actions
+var EndGame = require('../../actions/EndGame');
+
+// RegistrationActions
+var RegistrationPrevent = require('../../actions/RegistrationPrevent');
+var RegisterAndStartGameAction = require('../../actions/RegisterAndStartGameAction');
+
+function Game(initialWorld, phases) {
+
+	this.id = 'abc_' + Math.floor(Math.random() * 100000000);
+	this.__world = initialWorld;
+	this.__players = [];
+	this.__phases = phases;
+
+	// We should later abstract these into State pattern or smth
+	this.__registrationClosed = false;
+	this.__gameEnded = false;
+
+	this.start = function() {
+		recursiveLog.log('START: Game');
+
+		// Run through separate initialization function
+		//this.__world = this.initializeLocalWorld(this.__world, this.__players);
+
+		return Promise.each(this.__phases, function(phase) {
+			phase.__initialize(this.__world, this.__players);
+			return phase.__start().tap(function() {
+				
+			})
+		}.bind(this)).tap(function() {
+
+			this.__endGame();
+		}.bind(this)).catch(EndGame, function() {
+
+			this.__endGame();
+		}.bind(this))
+	}
+
+	this.__endGame = function() {
+		recursiveLog.log('STOP: Game');
+		this.__gameEnded = true;
+		this.broadcast({
+			topic: 'game_ended',
+		});
+
+	}
+
+	this.__playerDisconnected = function(player) {
+		this.broadcast({
+			topic: 'player_disconnected',
+			msg: player.getID()
+		})
+	}
+
+	this.__registerUser = function(user) {
+
+		// Does all the linking between User, Player and Game
+		var player;
+		if (user instanceof Player) {
+			player = user;
+		} else {
+			player = new Player(user);
+		}
+
+		this.__players.push(player);
+		player.__setGame(this);
+		this.broadcast({
+			topic: 'player_registered',
+			msg: player.getID()
+		});
+	}
+
+	this.register = function(userPolym) {
+		// Call game beforeRegistration extended method
+		// Provide extended method a way to abort registration through raising an exception 
+		var user;
+		if (userPolym instanceof Player) {
+			user = userPolym.user
+		} else {
+			user = userPolym;
+		}
+
+		return Promise.try(function() {
+
+			if (this.__registrationClosed) {
+				// Already closed
+				throw new RegistrationPrevent();
+			}
+			// This must be before game's beforeRegistration hook!
+			user.beforeRegistration(function() {
+				throw new RegistrationPrevent();
+			});
+
+			this.beforeRegistration(
+				user, 
+				_.slice(this.__players), 
+				/* We pass in actions the hook can trigger! */
+				function() {
+					throw new RegistrationPrevent();
+				},
+				function() {
+					this.__registrationClosed = true;
+					throw new RegisterAndStartGameAction();
+				}.bind(this)
+			);
+
+			// If neither raised an exception, add the player in!
+			this.__registerUser(userPolym);
+			return true;
+		}.bind(this))
+		.catch(RegistrationPrevent, function(err) {
+
+			user.msg({
+				topic: 'registration_prevent',
+				gameID: this.id
+			})
+			return null;
+		}.bind(this))
+		.catch(RegisterAndStartGameAction, function() {
+
+			this.__registerUser(userPolym);
+			this.start();
+			return true;
+		}.bind(this));
+		
+		// Call User's beforeRegistration hook
+		// Provide User way to abort registration through raising an exception 
+		
+		
+	}
+
+	this.broadcast = function(msg) {
+		_.map(this.__players, function(player) {
+			player.msg(msg);
+		}.bind(this))
+	}
+
+	this.__getID = function() {
+		return this.id;
+	}
+
+	this.initializeLocalWorld = function(world, _players) {
+		return world;
+	}
+
+	this.onPlayerDisconnect = function(world, players, actions) {
+		return true;
+	}
+
+ 	this.beforeRegistration = function(
+		user, 
+		players, 
+		registrationPreventAction, 
+		registerAndStartGameAction
+	) {
+		recursiveLog.log2('Hook: beforeRegistration');
+		return true;
+	
+	}
+}
+
+module.exports = Game;
+},{"../../actions/EndGame":54,"../../actions/RegisterAndStartGameAction":56,"../../actions/RegistrationPrevent":57,"../../recursiveLog":72,"./Player":70,"bluebird":4,"lodash":39}],69:[function(require,module,exports){
 var Promise = require('bluebird');
 var _ = require('lodash');
 
-var fixedTime = 1000;
+var recursiveLog = require('../../recursiveLog');
+
+// Action exceptions
+var RetryTurn = require('../../actions/RetryTurn');
+var EndGame = require('../../actions/EndGame');
+var EndMoveRound = require('../../actions/EndMoveRound');
+
+// Errors
+var ExtendError = require('../../errors/ExtendError');
+
+var actions = {
+	retryTurn: function() {
+		throw new RetryTurn();
+	},
+	endGame: function() {
+		throw new EndGame();
+	},
+	endMoveRound: function() {
+		throw new EndMoveRound;
+	}
+}
+
+/**
+* Conventions:
+
+* Functions starting 'this.__' are defined in parent (MoveRound). They are not meant
+* to be extended by client-code.
+*
+* Other functions are defined in child classes. They are meant to be extended by client-code.
+*/
+
+/* Extending classes must provide at least following methods:
+*
+* 'initializeLocalWorld(parentWorld, players)'
+* 'checkMoveLegality(move, localWorld, player, actions)'
+* 'handleIllegalMove(move, localWorld, player, actions)'
+* 'handleLegalMove(move, localWorld, player, actions)'
+*/
+
+function MoveRound(settings) {
+	this.__phaseName = 'MoveRound';
+	/** Type of this object */
+	this.__promisemonopolytype = 'MoveRound';
+	/** Players who started this MoveRound */
+	this.__participatingPlayers;
+	/** Save settings object */
+	this.__settings = settings;
+	/** Keeps track of global state during moveRound */
+	this.__globalStatePointer
+
+};
+
+MoveRound.prototype.__initialize = function(globalState, players) {
+
+	//console.log("INIT: " + this.__phaseName);
+
+	// Create local state object that goes around while
+	// this MoveRound exists!
+
+	// Any return value from here will be passed to this.start!
+
+	// Save copy of players so we know who are participating to this MoveRound
+	this.__participatingPlayers = _.slice(players);
+
+	// Call user-defined initializing of localWorld
+	this.onEnter(globalState, _.slice(players));
+	this.__globalStatePointer = globalState;
+	return true;
+
+}
+/**
+* Starts a moveRound and plays it through
+* @param localWorld - Local state of this MoveRound object
+* @returns Promise - Promise to be fulfilled when moveRound is over
+*/
+MoveRound.prototype.__start = function() {
+	recursiveLog.push();
+	recursiveLog.log('START: MoveRound');
+	return this.__loopRound(this.__participatingPlayers);
+
+}
+
+MoveRound.prototype.__loopRound = function(players) {
+
+	console.log("-----LOOP ROUND: " + players.length);
+
+	var playersStartingCount = players.length;
+	this.beforeLoopRound(this.__globalStatePointer, players);
+	return this.__oneRound(players)
+	// Filter away players who did not survive the round
+	.then(_.compact)
+	.tap(function(remainingPlayers) {
+		this.afterLoopRound(this.__globalStatePointer, remainingPlayers);
+	}.bind(this))
+	.then(function(remainingPlayers) {
+		//console.log("Remainingp players len: " + remainingPlayers.length);
+		
+		if (remainingPlayers.length !== playersStartingCount) {
+			this.remainingPlayersAmountChanged(this.__globalStatePointer, remainingPlayers, actions);
+		}
+
+		if (this.__settings.loop && remainingPlayers.length > 0) {
+			return this.__loopRound(remainingPlayers, this.__globalStatePointer);
+		}
+
+
+		// MoveRound is over
+		actions.endMoveRound();
+	}.bind(this))
+	.catch(EndMoveRound, function() {
+		console.warn("EndMoveRound caught")
+		this.__broadcast({
+			topic: 'new_world',
+			world: this.broadcastNewWorld(this.__globalStatePointer)
+		});
+		return this.__destroy(this.__globalStatePointer);
+	}.bind(this));
+
+}
+
+MoveRound.prototype.__oneRound = function(players) {
+	recursiveLog.log('START: Individual round of moves');
+	return Promise.mapSeries(players, function(player) {
+		if (player.hasDisconnected()) return null;
+		return this.__oneMove(player, 5160);
+	}.bind(this));
+
+}
+
+MoveRound.prototype.__oneMove = function(player, timeleft, retryCount) {
+	recursiveLog.log('-Request: Individual move for: ' + player.getID());
+	retryCount = retryCount || 0;
+	this.__broadcast({
+		topic: 'player_tomove',
+		playerID: player.getID(),
+		retryCount: retryCount
+	});
+
+	var dataForMove = this.beforeMove(this.__globalStatePointer, retryCount, actions);
+	// Tell player to make a move and start waiting for the move
+	return player.move(dataForMove).timeout(timeleft)
+	// Returns [true, move] if legal, otherwise [false, move];
+	.then(function(move) {
+		var isLegal = this.checkMoveLegality(move, this.__globalStatePointer, player, actions);
+		return [isLegal, move];
+	}.bind(this))
+	// Handle legal and illegal moves
+	// Illegal: You probably want to just retry turn or remove player 
+	// Legal: You probably want to mutate localWorld based on move
+	.spread(function(isLegal, move) {
+		var handleRes;
+		if (isLegal === false) {
+			handleRes = this.handleIllegalMove(move, this.__globalStatePointer, player, actions)
+		} 
+		else if (isLegal === true) {
+			handleRes = this.handleLegalMove(move, this.__globalStatePointer, player, actions)
+
+		}
+		else {
+			throw new ExtendError("Move legality did not return TRUE/FALSE: " + isLegal);	
+		}
+
+		if (handleRes === true) {
+			this.__broadcast({
+				topic: 'new_world',
+				world: this.broadcastNewWorld(this.__globalStatePointer)
+			});			
+			return player; // Allows to participate to next round
+		}
+
+		this.afterMove(this.__globalStatePointer, retryCount, actions);
+
+		return null; // Removes player from next round
+	}.bind(this))
+	.catch(Promise.TimeoutError, function() {
+		console.error("Player timed out");
+		this.__broadcast({
+			topic: 'player_timeout',
+			playerID: player.getID()
+		});
+		// Note!
+		// You can also return from catch and thus continue Promise chain!!
+		return this.handleTimeout(this.__globalStatePointer, player, actions);
+	}.bind(this))
+	.catch(RetryTurn, function() {
+		////console.log("Retrying player turn");
+		return this.__oneMove(player, timeleft, retryCount+1);
+	}.bind(this))
+	// We practically need to catch and rethrow all terminal exceptions so that we
+	// can in between catch and rethrow broadcast new state one last time.
+	.catch(function(err) {
+		// Broadcast first, then rethrow
+		this.__broadcast({
+			topic: 'new_world',
+			world: this.broadcastNewWorld(this.__globalStatePointer)
+		});
+		throw err;
+	}.bind(this))	
+}
+
+MoveRound.prototype.__broadcast = function(msg) {
+
+	_.map(this.__participatingPlayers, function(player) {
+		player.msg(msg);
+	})
+
+}
+
+MoveRound.prototype.beforeLoopRound = function(globalState, players) {
+	recursiveLog.log2('Hook: beforeLoopRound');
+}
+
+MoveRound.prototype.afterLoopRound = function(globalState, players) {
+	recursiveLog.log2('Hook: afterLoopRound');
+}
+
+MoveRound.prototype.onEnter = function(globalState, players) {
+	globalState.moverounds++;
+}
+
+
+MoveRound.prototype.onExit = function(globalState) {
+	return true;
+}
+
+MoveRound.prototype.__destroy = function(globalState) {
+	recursiveLog.log('STOP: MoveRound');
+	recursiveLog.pop();
+	this.onExit(this.__globalStatePointer);
+	//console.log("DESTROY: " + this.__phaseName);
+	return globalState;
+}
+
+MoveRound.prototype.beforeMove = function(globalState, retryCount, actions) {
+	recursiveLog.log2('Hook: beforeMove');
+	return true;
+}
+
+MoveRound.prototype.afterMove = function(globalState, retryCount, actions) {
+	recursiveLog.log2('Hook: afterMove');
+	return move;
+}
+
+MoveRound.prototype.handleTimeout = function(globalState, player, actions) {
+	recursiveLog.log2('Hook: handleTimeout');
+	return false;
+}
+
+MoveRound.prototype.checkMoveLegality = function(move, globalState, player, actions) {
+	recursiveLog.log2('Hook: checkMoveLegality');
+	return Math.random() < 1;
+	return true;
+}
+
+MoveRound.prototype.handleIllegalMove = function(move, globalState, player, actions) {	
+	recursiveLog.log2('Hook: handleIllegalMove');
+	actions.retryTurn(); // Make player move again
+} 
+
+MoveRound.prototype.handleLegalMove = function(move, globalState, player, actions) {
+	recursiveLog.log2('Hook: handleLegalMove');
+	return true;
+}
+
+MoveRound.prototype.remainingPlayersAmountChanged = function(globalState, players, actions) {
+	recursiveLog.log2('Hook: remainingPlayersAmountChanged');
+	return true;
+}
+MoveRound.prototype.broadcastNewWorld = function(globalState) {
+	recursiveLog.log2('Hook: broadcastNewWorld');
+	return globalState;
+}
+
+
+module.exports = MoveRound;
+
+
+},{"../../actions/EndGame":54,"../../actions/EndMoveRound":55,"../../actions/RetryTurn":58,"../../errors/ExtendError":59,"../../recursiveLog":72,"bluebird":4,"lodash":39}],70:[function(require,module,exports){
+var Promise = require('bluebird');
+var _ = require('lodash');
+
+var fixedTime = 5000;
 var variableTime = 200;
 
 function Player(user) {
@@ -41536,11 +41609,14 @@ function Player(user) {
 	this.move = function(moveInfo) {
 		// From here we route to User with gameID attached!
 		if (this.user && this.game) {
-			return this.user.move({
+			console.warn("Routing move request to user");
+			var prom = this.user.move({
 				gameID: this.game.__getID(),
 			});
+			console.log(prom);
+			return prom;
 		}
-
+		console.error("Rejecting this.move in Player");
 		return Promise.reject('No game or user link in Player object');
 			
 	}
@@ -41577,7 +41653,9 @@ function Player(user) {
 }
 
 module.exports = Player;
-},{"bluebird":4,"lodash":39}],72:[function(require,module,exports){
+},{"bluebird":4,"lodash":39}],71:[function(require,module,exports){
+var Promise = require('bluebird');
+var _ = require('lodash');
 var chalk = require('chalk');
 
 function User(id, msgForward) {
@@ -41646,7 +41724,7 @@ function User(id, msgForward) {
 }
 
 module.exports = User;
-},{"chalk":5}],73:[function(require,module,exports){
+},{"bluebird":4,"chalk":5,"lodash":39}],72:[function(require,module,exports){
 var chalk = require('chalk');
 var _ = require('lodash');
 
@@ -41670,9 +41748,9 @@ module.exports = {
 
 
 }
-},{"chalk":5,"lodash":39}],74:[function(require,module,exports){
+},{"chalk":5,"lodash":39}],73:[function(require,module,exports){
 
-},{}],75:[function(require,module,exports){
+},{}],74:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -41697,7 +41775,7 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],76:[function(require,module,exports){
+},{}],75:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -41925,7 +42003,7 @@ var substr = 'ab'.substr(-1) === 'b'
 ;
 
 }).call(this,require('_process'))
-},{"_process":77}],77:[function(require,module,exports){
+},{"_process":76}],76:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -42018,14 +42096,14 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],78:[function(require,module,exports){
+},{}],77:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
     && typeof arg.copy === 'function'
     && typeof arg.fill === 'function'
     && typeof arg.readUInt8 === 'function';
 }
-},{}],79:[function(require,module,exports){
+},{}],78:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -42615,4 +42693,4 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":78,"_process":77,"inherits":75}]},{},[70]);
+},{"./support/isBuffer":77,"_process":76,"inherits":74}]},{},[67]);

@@ -22,15 +22,11 @@ function Hand(initialWorld, phases) {
 		var playersByID = _.keyBy(players, function(player) {
 			return player.getID();
 		});
-
-		var playersState = _.mapValues(playersByID, function(player) {
-			return {chips: world.chips, hand: _.sampleSize(cardsInPlay, 2)}
+		
+		// Deal two cards to each player
+		_.mapValues(playersByID, function(player) {
+			globalState.currentHand.holeCards[player.getID()] = _.sampleSize(cardsInPlay, 2)
 		});
-
-		var tableState = {
-			deck: cardsInPlay,
-			boardCards: [],
-		}
 
 	}
 

@@ -1,7 +1,7 @@
 var Promise = require('bluebird');
 var _ = require('lodash');
 
-var fixedTime = 1000;
+var fixedTime = 5000;
 var variableTime = 200;
 
 function Player(user) {
@@ -17,11 +17,14 @@ function Player(user) {
 	this.move = function(moveInfo) {
 		// From here we route to User with gameID attached!
 		if (this.user && this.game) {
-			return this.user.move({
+			console.warn("Routing move request to user");
+			var prom = this.user.move({
 				gameID: this.game.__getID(),
 			});
+			console.log(prom);
+			return prom;
 		}
-
+		console.error("Rejecting this.move in Player");
 		return Promise.reject('No game or user link in Player object');
 			
 	}
