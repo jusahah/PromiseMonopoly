@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+
+	<style>
+
+		div.player {
+			width: 180px;
+			height: 350px;
+			display: inline-block;
+			margin: 10px;
+			background-color: #999999;
+			vertical-align: top;		
+		}
+
+	</style>
+</head>
+<body>
+
+<h1> Testing Poker Game and Players </h1>
+
+<div id="testingarea">
+
+</div>
+
+<script id="player-template" type="text/x-handlebars-template">
+  <div id="p{{playerLetter}}" class="player">
+    <h3>{{playerLetter}}</h3>
+    <p class="infofromserver">---</p>
+    <p class="timer">---</p>
+    <div class="actionbuttons">
+    	<button class="actionbutton" data-action="bet">Bet</button>
+    	<button class="actionbutton" data-action="check">Check</button>
+    	<button class="actionbutton" data-action="fold">Fold</button>
+    	<button class="actionbutton" data-action="disconnect">Disconnect</button>
+
+    </div>
+    
+  </div>
+</script>
+
+<script src="compiled.js"></script>
+</body>
+</html>

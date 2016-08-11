@@ -58,6 +58,7 @@ function Phase(phaseName, settings, subphases) {
 
 	this.__oneLoop = function() {
 		this.beforeLoop(this.__globalStatePointer, actions);
+		console.log("Phase subphases len: " + this.__subphases.length);
 		return Promise.mapSeries(this.__subphases, function(subphase) {
 			// Check if its moveRound
 			subphase.__initialize(this.__globalStatePointer, this.__participatingPlayers);

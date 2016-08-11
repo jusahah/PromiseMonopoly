@@ -190,7 +190,7 @@ MoveRound.prototype.__oneMove = function(player, timeleft, retryCount) {
 	}.bind(this))
 	// We practically need to catch and rethrow all terminal exceptions so that we
 	// can in between catch and rethrow broadcast new state one last time.
-	.catch(EndGame, function(err) {
+	.catch(function(err) {
 		// Broadcast first, then rethrow
 		this.__broadcast({
 			topic: 'new_world',
