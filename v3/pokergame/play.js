@@ -83,8 +83,14 @@ var msgAcceptorFor = function(playerLetter) {
 		//console.error("MSG!");
 		
 		el.find('.infofromserver').empty().append(msg.topic);
-
-		if (msg.topic === 'yourTurn') {
+		if (msg.topic === 'boardcards_changed') {
+			el.find('.boardcards').empty().append(JSON.stringify(msg.msg));
+		}
+		else if (msg.topic === 'your_hole_cards') {
+			// Render hole cards for player
+			el.find('.holecards').empty().append(JSON.stringify(msg.msg));
+		}
+		else if (msg.topic === 'yourTurn') {
 			var timerEl = el.find('.timer');
 			timerEl.empty().append(msg.timetomove);
 			el.css('background-color', 'green');
@@ -126,7 +132,7 @@ var msgAcceptorFor = function(playerLetter) {
 			el.css('background-color', lostBg);
 		} else if (msg.topic === 'new_world') {
 			console.warn("New world");
-			console.log(msg.world.betsOnTable);
+			console.log(msg.world);
 		} else if (msg.topic === 'player_tomove') {
 			if (msg.playerID === playerID) {
 				var timerEl = el.find('.timer');
@@ -246,6 +252,7 @@ Promise.try(function() {
 			p3: 1000
 		},
 		currentHand: {
+			deck: null,
 			pot: 0,
 			holeCards: {
 				p1: [],
@@ -262,8 +269,8 @@ Promise.try(function() {
 
 	}, [
 		singleHand,
-		singleHand,
-		singleHand
+		//singleHand,
+		//singleHand
 	])
 	console.log("singleHand");
 	console.log(singleHand);

@@ -4,6 +4,7 @@ var _ = require('lodash');
 var recursiveLog = require('../../recursiveLog');
 
 // Action exceptions
+var SkipMove = require('../../actions/SkipMove');
 var RetryTurn = require('../../actions/RetryTurn');
 var EndGame = require('../../actions/EndGame');
 var EndMoveRound = require('../../actions/EndMoveRound');
@@ -12,6 +13,9 @@ var EndMoveRound = require('../../actions/EndMoveRound');
 var ExtendError = require('../../errors/ExtendError');
 
 var actions = {
+	skipMove: function() {
+		throw new SkipMove();
+	},
 	retryTurn: function() {
 		throw new RetryTurn();
 	},
@@ -138,10 +142,15 @@ MoveRound.prototype.__oneMove = function(player, timeleft, retryCount) {
 		playerID: player.getID(),
 		retryCount: retryCount
 	});
-
-	var dataForMove = this.beforeMove(this.__globalStatePointer, retryCount, actions);
+	// Should throw SkipMove if player not to move this turn!
+	
 	// Tell player to make a move and start waiting for the move
-	return player.move(dataForMove).timeout(timeleft)
+	return Promise.try(function() {
+		return this.beforeMove(this.__globalStatePointer, player, retryCount, actions);
+	}.bind(this))
+	.then(function(dataForMove) {
+		return player.move(dataForMove).timeout(timeleft)
+	})
 	// Returns [true, move] if legal, otherwise [false, move];
 	.then(function(move) {
 		var isLegal = this.checkMoveLegality(move, this.__globalStatePointer, player, actions);
@@ -168,6 +177,7 @@ MoveRound.prototype.__oneMove = function(player, timeleft, retryCount) {
 				topic: 'new_world',
 				world: this.broadcastNewWorld(this.__globalStatePointer)
 			});			
+			this.afterMove(this.__globalStatePointer, retryCount, actions);
 			return player; // Allows to participate to next round
 		}
 
@@ -185,8 +195,12 @@ MoveRound.prototype.__oneMove = function(player, timeleft, retryCount) {
 		// You can also return from catch and thus continue Promise chain!!
 		return this.handleTimeout(this.__globalStatePointer, player, actions);
 	}.bind(this))
+	.catch(SkipMove, function() {
+		console.warn("----------SKIP MOVE CAUGHT-----------")
+		return null;
+	})
 	.catch(RetryTurn, function() {
-		////console.log("Retrying player turn");
+		console.log("Retrying player turn");
 		return this.__oneMove(player, timeleft, retryCount+1);
 	}.bind(this))
 	// We practically need to catch and rethrow all terminal exceptions so that we

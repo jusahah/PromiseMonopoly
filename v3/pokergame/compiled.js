@@ -303,7 +303,7 @@ function amdefine(module, requireFn) {
 module.exports = amdefine;
 
 }).call(this,require('_process'),"/../../node_modules/amdefine/amdefine.js")
-},{"_process":76,"path":75}],2:[function(require,module,exports){
+},{"_process":77,"path":76}],2:[function(require,module,exports){
 'use strict';
 module.exports = function () {
 	return /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
@@ -5855,7 +5855,7 @@ module.exports = ret;
 },{"./es5":13}]},{},[4])(4)
 });                    ;if (typeof window !== 'undefined' && window !== null) {                               window.P = window.Promise;                                                     } else if (typeof self !== 'undefined' && self !== null) {                             self.P = self.Promise;                                                         }
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"_process":76}],5:[function(require,module,exports){
+},{"_process":77}],5:[function(require,module,exports){
 (function (process){
 'use strict';
 var escapeStringRegexp = require('escape-string-regexp');
@@ -5975,7 +5975,7 @@ module.exports.stripColor = stripAnsi;
 module.exports.supportsColor = supportsColor;
 
 }).call(this,require('_process'))
-},{"_process":76,"ansi-styles":3,"escape-string-regexp":6,"has-ansi":37,"strip-ansi":51,"supports-color":52}],6:[function(require,module,exports){
+},{"_process":77,"ansi-styles":3,"escape-string-regexp":6,"has-ansi":37,"strip-ansi":51,"supports-color":52}],6:[function(require,module,exports){
 'use strict';
 
 var matchOperatorsRe = /[|\\{}()[\]^$+*?.]/g;
@@ -10655,7 +10655,7 @@ if (typeof require !== 'undefined' && require.extensions) {
   require.extensions['.hbs'] = extension;
 }
 
-},{"../dist/cjs/handlebars":7,"../dist/cjs/handlebars/compiler/printer":17,"fs":73}],37:[function(require,module,exports){
+},{"../dist/cjs/handlebars":7,"../dist/cjs/handlebars/compiler/printer":17,"fs":74}],37:[function(require,module,exports){
 'use strict';
 var ansiRegex = require('ansi-regex');
 var re = new RegExp(ansiRegex().source); // remove the `g` flag
@@ -40349,175 +40349,7 @@ module.exports = (function () {
 })();
 
 }).call(this,require('_process'))
-},{"_process":76}],53:[function(require,module,exports){
-var Promise = require('bluebird');
-var _ = require('lodash');
-
-// Action exceptions
-var RetryTurn = require('./actions/RetryTurn');
-var EndGame = require('./actions/EndGame');
-var EndMoveRound = require('./actions/EndMoveRound');
-
-var recursiveLog = require('./recursiveLog');
-
-var actions = {
-	retryTurn: function() {
-		throw new RetryTurn();
-	},
-	endGame: function() {
-		throw new EndGame();
-	},
-	endMoveRound: function() {
-		throw new EndMoveRound;
-	}
-}
-
-function Phase(phaseName, settings, subphases) {
-
-	this.__phaseName = phaseName;
-
-	this.__subphases = subphases || [];
-	/** Save settings object */
-	this.__settings = settings;
-
-	this.__globalStatePointer;
-
-	this.__participatingPlayers;
-
-	this.__initialize = function(globalState, players) {
-		//console.log(JSON.stringify(globalState))
-		//console.log("INIT: " + this.__phaseName);
-		//console.log("Players len: " + players.length);
-		this.__participatingPlayers = _.slice(players);
-		this.__globalStatePointer = globalState;
-		this.onEnter(this.__globalStatePointer);
-		this.__broadcast({
-			topic: 'new_world',
-			world: this.broadcastNewWorld(this.__globalStatePointer)
-		});
-
-		return true;
-
-	}
-
-	this.__start = function() {
-		recursiveLog.push();
-		recursiveLog.log('START: Phase ' + this.__phaseName);
-		
-		return this.__oneLoop()
-		.tap(this.__destroy.bind(this));
-	}
-
-	this.__oneLoop = function() {
-		this.beforeLoop(this.__globalStatePointer, actions);
-		console.log("Phase subphases len: " + this.__subphases.length);
-		return Promise.mapSeries(this.__subphases, function(subphase) {
-			// Check if its moveRound
-			subphase.__initialize(this.__globalStatePointer, this.__participatingPlayers);
-			return subphase.__start();
-		}.bind(this))
-		.then(function() {
-			this.afterLoop(this.__globalStatePointer, actions);
-			if (this.__settings.loop) return this.__oneLoop();
-			return true;
-		}.bind(this));
-
-	}
-
-	this.__destroy = function() {
-		recursiveLog.log('STOP: Phase ' + this.__phaseName);
-		recursiveLog.pop();
-		this.onExit(this.__globalStatePointer);
-		this.beforeDestroy(this.__globalStatePointer);
-		//console.log("DESTROY: " + this.__phaseName);
-
-	}
-
-	this.__broadcast = function(msg) {
-		_.map(this.__participatingPlayers, function(player) {
-			player.msg(msg);
-		})
-	}
-
-	this.onEnter = function(globalState) {
-		globalState.phases++;
-	}
-
-	this.onExit = function(globalState) {
-		return true;
-	}
-
-	this.initializeLocalWorld = function(globalState) {
-		return globalState;
-	}
-
-	this.beforeLoop = function() {
-		return true;
-	}
-
-	this.afterLoop = function() {
-		return true;
-	}
-
-	this.beforeDestroy = function() {
-		return true;
-	}
-
-	this.broadcastNewWorld = function(globalState) {
-		return globalState;
-	}
-}
-
-module.exports = Phase;
-
-
-/*
-
-Always pass a pointer to global state around!! (subphases can then implement their
-own stack of local states on it)
-
-GamePhase = {
-	
-	this.onEnter = function() {},
-	this.onExit  = function() {},
-	this.beforeLoop = function() {},
-	this.afterLoop = function() {},
-	this.broadcastNewWorld = function() {}
-}
-
-Game = {
-	
-	this.register,
-	this.start,
-
-	this.onStart,
-	this.onEnd,
-
-	this.broadcastNewWorld
-}
-
-MoveRound = {
-	
-	this.beforeMove,
-	this.afterMove,
-
-	this.beforeRound,
-	this.afterRound,
-
-	this.handleTimeout,
-	this.handleLegalMove,
-	this.handleIllegalMove,
-	this.checkMoveLegality,
-
-	this.broadcastNewWorld,
-	this.remainingPlayersAmountChanged
-
-}
-
-*/
-
-
-},{"./actions/EndGame":54,"./actions/EndMoveRound":55,"./actions/RetryTurn":58,"./recursiveLog":72,"bluebird":4,"lodash":39}],54:[function(require,module,exports){
+},{"_process":77}],53:[function(require,module,exports){
 module.exports = function EndGame(message, extra) {
   Error.captureStackTrace(this, this.constructor);
   this.name = this.constructor.name;
@@ -40526,7 +40358,7 @@ module.exports = function EndGame(message, extra) {
 };
 
 require('util').inherits(module.exports, Error);
-},{"util":78}],55:[function(require,module,exports){
+},{"util":79}],54:[function(require,module,exports){
 module.exports = function EndMoveRound(message, extra) {
   Error.captureStackTrace(this, this.constructor);
   this.name = this.constructor.name;
@@ -40535,7 +40367,7 @@ module.exports = function EndMoveRound(message, extra) {
 };
 
 require('util').inherits(module.exports, Error);
-},{"util":78}],56:[function(require,module,exports){
+},{"util":79}],55:[function(require,module,exports){
 module.exports = function RegisterAndStartGameAction(message, extra) {
   Error.captureStackTrace(this, this.constructor);
   this.name = this.constructor.name;
@@ -40544,7 +40376,7 @@ module.exports = function RegisterAndStartGameAction(message, extra) {
 };
 
 require('util').inherits(module.exports, Error);
-},{"util":78}],57:[function(require,module,exports){
+},{"util":79}],56:[function(require,module,exports){
 module.exports = function RegistrationPrevent(message, extra) {
   Error.captureStackTrace(this, this.constructor);
   this.name = this.constructor.name;
@@ -40553,7 +40385,7 @@ module.exports = function RegistrationPrevent(message, extra) {
 };
 
 require('util').inherits(module.exports, Error);
-},{"util":78}],58:[function(require,module,exports){
+},{"util":79}],57:[function(require,module,exports){
 module.exports = function RetryTurn(message, extra) {
   Error.captureStackTrace(this, this.constructor);
   this.name = this.constructor.name;
@@ -40562,7 +40394,16 @@ module.exports = function RetryTurn(message, extra) {
 };
 
 require('util').inherits(module.exports, Error);
-},{"util":78}],59:[function(require,module,exports){
+},{"util":79}],58:[function(require,module,exports){
+module.exports = function SkipMove(message, extra) {
+  Error.captureStackTrace(this, this.constructor);
+  this.name = this.constructor.name;
+  this.message = message;
+  this.extra = extra;
+};
+
+require('util').inherits(module.exports, Error);
+},{"util":79}],59:[function(require,module,exports){
 module.exports = function ExtendError(message, extra) {
   Error.captureStackTrace(this, this.constructor);
   this.name = this.constructor.name;
@@ -40571,7 +40412,7 @@ module.exports = function ExtendError(message, extra) {
 };
 
 require('util').inherits(module.exports, Error);
-},{"util":78}],60:[function(require,module,exports){
+},{"util":79}],60:[function(require,module,exports){
 var Promise = require('bluebird');
 var _ = require('lodash');
 
@@ -40681,11 +40522,33 @@ function BettingRound(settings, phases) {
 		console.warn("---- STATE -------");
 		console.log(JSON.stringify(globalState));
 		console.warn("------------------");
-		return globalState.currentHand;
+		return {
+			pot: globalState.currentHand.pot,
+			bets: globalState.currentHand.betsOnTable
+		}
+
+	}
+
+	this.beforeMove = function(globalState, player, retryCount, actions) {
+		console.warn("------------- BEFORE MOVE FILTER----------")
+		if (!_.has(globalState.currentHand.holeCards, player.getID())) {
+			console.error("BEFORE MOVE: Player not anymore playing a hand");
+			actions.skipMove();
+		}
+
+		return true;
 
 	}
 
 	this.afterMove = function(globalState, retryCount, actions) {
+		console.error("AFTER BETTING ROUND MOVE")
+		this.__broadcast({
+			topic: 'table_state_after_move',
+			msg: {
+				pot: globalState.currentHand.pot,
+				bets: globalState.currentHand.betsOnTable
+			}
+		});
 		// Check if there is any point of going on
 		var holeCards = globalState.currentHand.holeCards;
 
@@ -40711,11 +40574,22 @@ module.exports = BettingRound;
 var Promise = require('bluebird');
 var _ = require('lodash');
 
-var Phase = require('../Phase');
+var Phase = require('./protos/Phase');
 
 function Flop(settings, phases) {
 
 	Phase.call(this, 'Flop', settings, phases);
+
+	this.onEnter = function(globalState, players) {
+		console.error("--FLOP ENTER--")
+
+		globalState.currentHand.boardCards = _.pullAt(globalState.currentHand.deck, [0,1,2]);
+
+		this.__broadcast({
+			topic: 'boardcards_changed',
+			msg: globalState.currentHand.boardCards
+		})
+	}
 
 
 
@@ -40726,11 +40600,11 @@ Flop.prototype = Object.create(Phase.prototype);
 
 
 module.exports = Flop;
-},{"../Phase":53,"bluebird":4,"lodash":39}],62:[function(require,module,exports){
+},{"./protos/Phase":70,"bluebird":4,"lodash":39}],62:[function(require,module,exports){
 var Promise = require('bluebird');
 var _ = require('lodash');
 
-var Phase = require('../Phase');
+var Phase = require('./protos/Phase');
 
 var CARDS = [
 	['Ah', '2h', '3h', '4h', '5h', '6h', '7h', '8h', '9h', 'Th', 'Jh', 'Qh', 'Kh'],
@@ -40744,9 +40618,11 @@ function Hand(initialWorld, phases) {
 	Phase.call(this, 'Hand', initialWorld, phases);
 
 	this.onEnter = function(globalState, players) {
-		console.log("Hand on enter");
+		console.error("Hand on enter (onEnter)");
+		console.log(players.length);
 		// Deal cards to each players!
-		var cardsInPlay = _.flatten(CARDS);
+		globalState.currentHand.deck = _.shuffle(_.flatten(CARDS));
+		globalState.currentHand.holeCards = {};
 
 		var playersByID = _.keyBy(players, function(player) {
 			return player.getID();
@@ -40754,13 +40630,19 @@ function Hand(initialWorld, phases) {
 		
 		// Deal two cards to each player
 		_.mapValues(playersByID, function(player) {
-			globalState.currentHand.holeCards[player.getID()] = _.sampleSize(cardsInPlay, 2)
+			var holeCards = _.pullAt(globalState.currentHand.deck, [0,1]);
+			globalState.currentHand.holeCards[player.getID()] = holeCards
+			player.msg({
+				topic: 'your_hole_cards',
+				msg: holeCards
+			})
 		});
 
 	}
 
 	this.onExit = function() {
 		console.log("Hand on exit");
+
 	}
 
 
@@ -40771,11 +40653,11 @@ Hand.prototype = Object.create(Phase.prototype);
 
 
 module.exports = Hand;
-},{"../Phase":53,"bluebird":4,"lodash":39}],63:[function(require,module,exports){
+},{"./protos/Phase":70,"bluebird":4,"lodash":39}],63:[function(require,module,exports){
 var Promise = require('bluebird');
 var _ = require('lodash');
 
-var Phase = require('../Phase');
+var Phase = require('./protos/Phase');
 
 
 
@@ -40783,7 +40665,9 @@ function Preflop(settings, phases) {
 
 	Phase.call(this, 'Preflop', settings, phases);
 
-
+	this.onEnter = function() {
+		console.error("--PREFLOP ENTER--")
+	}
 }
 
 // Set prototype link
@@ -40791,17 +40675,26 @@ Preflop.prototype = Object.create(Phase.prototype);
 
 
 module.exports = Preflop;
-},{"../Phase":53,"bluebird":4,"lodash":39}],64:[function(require,module,exports){
+},{"./protos/Phase":70,"bluebird":4,"lodash":39}],64:[function(require,module,exports){
 var Promise = require('bluebird');
 var _ = require('lodash');
 
-var Phase = require('../Phase');
+var Phase = require('./protos/Phase');
 
 function River(settings, phases) {
 
 	Phase.call(this, 'River', settings, phases);
 
+	this.onEnter = function(globalState, players) {
+		console.error("--RIVER ENTER--")
+		var riverCard = _.pullAt(globalState.currentHand.deck, [0])[0];
+		globalState.currentHand.boardCards.push(riverCard);
 
+		this.__broadcast({
+			topic: 'boardcards_changed',
+			msg: globalState.currentHand.boardCards
+		})	
+	}
 
 }
 
@@ -40810,7 +40703,7 @@ River.prototype = Object.create(Phase.prototype);
 
 
 module.exports = River;
-},{"../Phase":53,"bluebird":4,"lodash":39}],65:[function(require,module,exports){
+},{"./protos/Phase":70,"bluebird":4,"lodash":39}],65:[function(require,module,exports){
 var Promise = require('bluebird');
 var _ = require('lodash');
 
@@ -40842,12 +40735,22 @@ module.exports = SitAndGo;
 var Promise = require('bluebird');
 var _ = require('lodash');
 
-var Phase = require('../Phase');
+var Phase = require('./protos/Phase');
 
 function Turn(settings, phases) {
 
 	Phase.call(this, 'Turn', settings, phases);
 
+	this.onEnter = function(globalState, players) {
+		console.error("--TURN ENTER--")
+		var turnCard = _.pullAt(globalState.currentHand.deck, [0])[0];
+		globalState.currentHand.boardCards.push(turnCard);
+
+		this.__broadcast({
+			topic: 'boardcards_changed',
+			msg: globalState.currentHand.boardCards
+		})		
+	}
 }
 
 // Set prototype link
@@ -40855,7 +40758,7 @@ Turn.prototype = Object.create(Phase.prototype);
 
 
 module.exports = Turn;
-},{"../Phase":53,"bluebird":4,"lodash":39}],67:[function(require,module,exports){
+},{"./protos/Phase":70,"bluebird":4,"lodash":39}],67:[function(require,module,exports){
 var Promise = require('bluebird');
 var _ = require('lodash');
 var jquery = require('jquery');
@@ -40941,8 +40844,14 @@ var msgAcceptorFor = function(playerLetter) {
 		//console.error("MSG!");
 		
 		el.find('.infofromserver').empty().append(msg.topic);
-
-		if (msg.topic === 'yourTurn') {
+		if (msg.topic === 'boardcards_changed') {
+			el.find('.boardcards').empty().append(JSON.stringify(msg.msg));
+		}
+		else if (msg.topic === 'your_hole_cards') {
+			// Render hole cards for player
+			el.find('.holecards').empty().append(JSON.stringify(msg.msg));
+		}
+		else if (msg.topic === 'yourTurn') {
 			var timerEl = el.find('.timer');
 			timerEl.empty().append(msg.timetomove);
 			el.css('background-color', 'green');
@@ -40984,7 +40893,7 @@ var msgAcceptorFor = function(playerLetter) {
 			el.css('background-color', lostBg);
 		} else if (msg.topic === 'new_world') {
 			console.warn("New world");
-			console.log(msg.world.betsOnTable);
+			console.log(msg.world);
 		} else if (msg.topic === 'player_tomove') {
 			if (msg.playerID === playerID) {
 				var timerEl = el.find('.timer');
@@ -41104,6 +41013,7 @@ Promise.try(function() {
 			p3: 1000
 		},
 		currentHand: {
+			deck: null,
 			pot: 0,
 			holeCards: {
 				p1: [],
@@ -41120,8 +41030,8 @@ Promise.try(function() {
 
 	}, [
 		singleHand,
-		singleHand,
-		singleHand
+		//singleHand,
+		//singleHand
 	])
 	console.log("singleHand");
 	console.log(singleHand);
@@ -41139,7 +41049,7 @@ Promise.try(function() {
 	console.log("Calling start() of SitAndGo")
 	sitAndGo.start();
 });
-},{"./BettingRound":60,"./Flop":61,"./Hand":62,"./Preflop":63,"./River":64,"./SitAndGo":65,"./Turn":66,"./protos/Player":70,"./protos/User":71,"bluebird":4,"handlebars":36,"jquery":38,"lodash":39}],68:[function(require,module,exports){
+},{"./BettingRound":60,"./Flop":61,"./Hand":62,"./Preflop":63,"./River":64,"./SitAndGo":65,"./Turn":66,"./protos/Player":71,"./protos/User":72,"bluebird":4,"handlebars":36,"jquery":38,"lodash":39}],68:[function(require,module,exports){
 var Promise = require('bluebird');
 var _ = require('lodash');
 var recursiveLog = require('../../recursiveLog');
@@ -41308,13 +41218,14 @@ function Game(initialWorld, phases) {
 }
 
 module.exports = Game;
-},{"../../actions/EndGame":54,"../../actions/RegisterAndStartGameAction":56,"../../actions/RegistrationPrevent":57,"../../recursiveLog":72,"./Player":70,"bluebird":4,"lodash":39}],69:[function(require,module,exports){
+},{"../../actions/EndGame":53,"../../actions/RegisterAndStartGameAction":55,"../../actions/RegistrationPrevent":56,"../../recursiveLog":73,"./Player":71,"bluebird":4,"lodash":39}],69:[function(require,module,exports){
 var Promise = require('bluebird');
 var _ = require('lodash');
 
 var recursiveLog = require('../../recursiveLog');
 
 // Action exceptions
+var SkipMove = require('../../actions/SkipMove');
 var RetryTurn = require('../../actions/RetryTurn');
 var EndGame = require('../../actions/EndGame');
 var EndMoveRound = require('../../actions/EndMoveRound');
@@ -41323,6 +41234,9 @@ var EndMoveRound = require('../../actions/EndMoveRound');
 var ExtendError = require('../../errors/ExtendError');
 
 var actions = {
+	skipMove: function() {
+		throw new SkipMove();
+	},
 	retryTurn: function() {
 		throw new RetryTurn();
 	},
@@ -41449,10 +41363,15 @@ MoveRound.prototype.__oneMove = function(player, timeleft, retryCount) {
 		playerID: player.getID(),
 		retryCount: retryCount
 	});
-
-	var dataForMove = this.beforeMove(this.__globalStatePointer, retryCount, actions);
+	// Should throw SkipMove if player not to move this turn!
+	
 	// Tell player to make a move and start waiting for the move
-	return player.move(dataForMove).timeout(timeleft)
+	return Promise.try(function() {
+		return this.beforeMove(this.__globalStatePointer, player, retryCount, actions);
+	}.bind(this))
+	.then(function(dataForMove) {
+		return player.move(dataForMove).timeout(timeleft)
+	})
 	// Returns [true, move] if legal, otherwise [false, move];
 	.then(function(move) {
 		var isLegal = this.checkMoveLegality(move, this.__globalStatePointer, player, actions);
@@ -41479,6 +41398,7 @@ MoveRound.prototype.__oneMove = function(player, timeleft, retryCount) {
 				topic: 'new_world',
 				world: this.broadcastNewWorld(this.__globalStatePointer)
 			});			
+			this.afterMove(this.__globalStatePointer, retryCount, actions);
 			return player; // Allows to participate to next round
 		}
 
@@ -41496,8 +41416,12 @@ MoveRound.prototype.__oneMove = function(player, timeleft, retryCount) {
 		// You can also return from catch and thus continue Promise chain!!
 		return this.handleTimeout(this.__globalStatePointer, player, actions);
 	}.bind(this))
+	.catch(SkipMove, function() {
+		console.warn("----------SKIP MOVE CAUGHT-----------")
+		return null;
+	})
 	.catch(RetryTurn, function() {
-		////console.log("Retrying player turn");
+		console.log("Retrying player turn");
 		return this.__oneMove(player, timeleft, retryCount+1);
 	}.bind(this))
 	// We practically need to catch and rethrow all terminal exceptions so that we
@@ -41589,7 +41513,175 @@ MoveRound.prototype.broadcastNewWorld = function(globalState) {
 module.exports = MoveRound;
 
 
-},{"../../actions/EndGame":54,"../../actions/EndMoveRound":55,"../../actions/RetryTurn":58,"../../errors/ExtendError":59,"../../recursiveLog":72,"bluebird":4,"lodash":39}],70:[function(require,module,exports){
+},{"../../actions/EndGame":53,"../../actions/EndMoveRound":54,"../../actions/RetryTurn":57,"../../actions/SkipMove":58,"../../errors/ExtendError":59,"../../recursiveLog":73,"bluebird":4,"lodash":39}],70:[function(require,module,exports){
+var Promise = require('bluebird');
+var _ = require('lodash');
+
+// Action exceptions
+var RetryTurn = require('../../actions/RetryTurn');
+var EndGame = require('../../actions/EndGame');
+var EndMoveRound = require('../../actions/EndMoveRound');
+
+var recursiveLog = require('../../recursiveLog');
+
+var actions = {
+	retryTurn: function() {
+		throw new RetryTurn();
+	},
+	endGame: function() {
+		throw new EndGame();
+	},
+	endMoveRound: function() {
+		throw new EndMoveRound;
+	}
+}
+
+function Phase(phaseName, settings, subphases) {
+
+	this.__phaseName = phaseName;
+
+	this.__subphases = subphases || [];
+	/** Save settings object */
+	this.__settings = settings;
+
+	this.__globalStatePointer;
+
+	this.__participatingPlayers;
+
+	this.__initialize = function(globalState, players) {
+		//console.log(JSON.stringify(globalState))
+		//console.log("INIT: " + this.__phaseName);
+		//console.log("Players len: " + players.length);
+		this.__participatingPlayers = _.slice(players);
+		this.__globalStatePointer = globalState;
+		this.onEnter(globalState, _.slice(players));
+		this.__broadcast({
+			topic: 'new_world',
+			world: this.broadcastNewWorld(this.__globalStatePointer)
+		});
+
+		return true;
+
+	}
+
+	this.__start = function() {
+		recursiveLog.push();
+		recursiveLog.log('START: Phase ' + this.__phaseName);
+		
+		return this.__oneLoop()
+		.tap(this.__destroy.bind(this));
+	}
+
+	this.__oneLoop = function() {
+		this.beforeLoop(this.__globalStatePointer, actions);
+		console.log("Phase subphases len: " + this.__subphases.length);
+		return Promise.mapSeries(this.__subphases, function(subphase) {
+			// Check if its moveRound
+			subphase.__initialize(this.__globalStatePointer, this.__participatingPlayers);
+			return subphase.__start();
+		}.bind(this))
+		.then(function() {
+			this.afterLoop(this.__globalStatePointer, actions);
+			if (this.__settings.loop) return this.__oneLoop();
+			return true;
+		}.bind(this));
+
+	}
+
+	this.__destroy = function() {
+		recursiveLog.log('STOP: Phase ' + this.__phaseName);
+		recursiveLog.pop();
+		this.onExit(this.__globalStatePointer);
+		this.beforeDestroy(this.__globalStatePointer);
+		//console.log("DESTROY: " + this.__phaseName);
+
+	}
+
+	this.__broadcast = function(msg) {
+		_.map(this.__participatingPlayers, function(player) {
+			player.msg(msg);
+		})
+	}
+
+	this.onEnter = function(globalState) {
+		globalState.phases++;
+	}
+
+	this.onExit = function(globalState) {
+		return true;
+	}
+
+	this.initializeLocalWorld = function(globalState) {
+		return globalState;
+	}
+
+	this.beforeLoop = function() {
+		return true;
+	}
+
+	this.afterLoop = function() {
+		return true;
+	}
+
+	this.beforeDestroy = function() {
+		return true;
+	}
+
+	this.broadcastNewWorld = function(globalState) {
+		return globalState;
+	}
+}
+
+module.exports = Phase;
+
+
+/*
+
+Always pass a pointer to global state around!! (subphases can then implement their
+own stack of local states on it)
+
+GamePhase = {
+	
+	this.onEnter = function() {},
+	this.onExit  = function() {},
+	this.beforeLoop = function() {},
+	this.afterLoop = function() {},
+	this.broadcastNewWorld = function() {}
+}
+
+Game = {
+	
+	this.register,
+	this.start,
+
+	this.onStart,
+	this.onEnd,
+
+	this.broadcastNewWorld
+}
+
+MoveRound = {
+	
+	this.beforeMove,
+	this.afterMove,
+
+	this.beforeRound,
+	this.afterRound,
+
+	this.handleTimeout,
+	this.handleLegalMove,
+	this.handleIllegalMove,
+	this.checkMoveLegality,
+
+	this.broadcastNewWorld,
+	this.remainingPlayersAmountChanged
+
+}
+
+*/
+
+
+},{"../../actions/EndGame":53,"../../actions/EndMoveRound":54,"../../actions/RetryTurn":57,"../../recursiveLog":73,"bluebird":4,"lodash":39}],71:[function(require,module,exports){
 var Promise = require('bluebird');
 var _ = require('lodash');
 
@@ -41641,6 +41733,7 @@ function Player(user) {
 		if (this.user) {
 			// Decorate with game id
 			if (this.game) msg.gameID = this.game.__getID();
+			console.error("MSG TO PLAYER: " + this.getID() + ", " + msg.topic)
 			this.user.msg(msg);
 		}		
 
@@ -41653,7 +41746,7 @@ function Player(user) {
 }
 
 module.exports = Player;
-},{"bluebird":4,"lodash":39}],71:[function(require,module,exports){
+},{"bluebird":4,"lodash":39}],72:[function(require,module,exports){
 var Promise = require('bluebird');
 var _ = require('lodash');
 var chalk = require('chalk');
@@ -41724,7 +41817,7 @@ function User(id, msgForward) {
 }
 
 module.exports = User;
-},{"bluebird":4,"chalk":5,"lodash":39}],72:[function(require,module,exports){
+},{"bluebird":4,"chalk":5,"lodash":39}],73:[function(require,module,exports){
 var chalk = require('chalk');
 var _ = require('lodash');
 
@@ -41748,9 +41841,9 @@ module.exports = {
 
 
 }
-},{"chalk":5,"lodash":39}],73:[function(require,module,exports){
+},{"chalk":5,"lodash":39}],74:[function(require,module,exports){
 
-},{}],74:[function(require,module,exports){
+},{}],75:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -41775,7 +41868,7 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],75:[function(require,module,exports){
+},{}],76:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -42003,7 +42096,7 @@ var substr = 'ab'.substr(-1) === 'b'
 ;
 
 }).call(this,require('_process'))
-},{"_process":76}],76:[function(require,module,exports){
+},{"_process":77}],77:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -42096,14 +42189,14 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],77:[function(require,module,exports){
+},{}],78:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
     && typeof arg.copy === 'function'
     && typeof arg.fill === 'function'
     && typeof arg.readUInt8 === 'function';
 }
-},{}],78:[function(require,module,exports){
+},{}],79:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -42693,4 +42786,4 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":77,"_process":76,"inherits":74}]},{},[67]);
+},{"./support/isBuffer":78,"_process":77,"inherits":75}]},{},[67]);

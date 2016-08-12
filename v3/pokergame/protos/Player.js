@@ -49,6 +49,7 @@ function Player(user) {
 		if (this.user) {
 			// Decorate with game id
 			if (this.game) msg.gameID = this.game.__getID();
+			console.error("MSG TO PLAYER: " + this.getID() + ", " + msg.topic)
 			this.user.msg(msg);
 		}		
 

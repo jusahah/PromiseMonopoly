@@ -1,7 +1,7 @@
 var Promise = require('bluebird');
 var _ = require('lodash');
 
-var Phase = require('../Phase');
+var Phase = require('./protos/Phase');
 
 var CARDS = [
 	['Ah', '2h', '3h', '4h', '5h', '6h', '7h', '8h', '9h', 'Th', 'Jh', 'Qh', 'Kh'],
@@ -15,9 +15,11 @@ function Hand(initialWorld, phases) {
 	Phase.call(this, 'Hand', initialWorld, phases);
 
 	this.onEnter = function(globalState, players) {
-		console.log("Hand on enter");
+		console.error("Hand on enter (onEnter)");
+		console.log(players.length);
 		// Deal cards to each players!
-		var cardsInPlay = _.flatten(CARDS);
+		globalState.currentHand.deck = _.shuffle(_.flatten(CARDS));
+		globalState.currentHand.holeCards = {};
 
 		var playersByID = _.keyBy(players, function(player) {
 			return player.getID();
@@ -25,13 +27,19 @@ function Hand(initialWorld, phases) {
 		
 		// Deal two cards to each player
 		_.mapValues(playersByID, function(player) {
-			globalState.currentHand.holeCards[player.getID()] = _.sampleSize(cardsInPlay, 2)
+			var holeCards = _.pullAt(globalState.currentHand.deck, [0,1]);
+			globalState.currentHand.holeCards[player.getID()] = holeCards
+			player.msg({
+				topic: 'your_hole_cards',
+				msg: holeCards
+			})
 		});
 
 	}
 
 	this.onExit = function() {
 		console.log("Hand on exit");
+
 	}
 
 

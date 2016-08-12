@@ -107,11 +107,33 @@ function BettingRound(settings, phases) {
 		console.warn("---- STATE -------");
 		console.log(JSON.stringify(globalState));
 		console.warn("------------------");
-		return globalState.currentHand;
+		return {
+			pot: globalState.currentHand.pot,
+			bets: globalState.currentHand.betsOnTable
+		}
+
+	}
+
+	this.beforeMove = function(globalState, player, retryCount, actions) {
+		console.warn("------------- BEFORE MOVE FILTER----------")
+		if (!_.has(globalState.currentHand.holeCards, player.getID())) {
+			console.error("BEFORE MOVE: Player not anymore playing a hand");
+			actions.skipMove();
+		}
+
+		return true;
 
 	}
 
 	this.afterMove = function(globalState, retryCount, actions) {
+		console.error("AFTER BETTING ROUND MOVE")
+		this.__broadcast({
+			topic: 'table_state_after_move',
+			msg: {
+				pot: globalState.currentHand.pot,
+				bets: globalState.currentHand.betsOnTable
+			}
+		});
 		// Check if there is any point of going on
 		var holeCards = globalState.currentHand.holeCards;
 
